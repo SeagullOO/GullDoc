@@ -1,5 +1,5 @@
 {
-  "name": "game-design-tool",
+  "name": "gull",
   "private": true,
   "version": "1.0.0",
   "main": "electron/main.js",
@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "vendor:update": "node scripts/download-vendor.mjs",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "vite build && electron-builder --win portable",
+    "electron:build": "vite build && cross-env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --win portable",
     "electron:start": "electron ."
   },
   "dependencies": {
@@ -40,8 +40,8 @@
     "wait-on": "^9.0.10"
   },
   "build": {
-    "appId": "com.gamedesign.tool",
-    "productName": "游戏策划文档工具",
+    "appId": "com.gull.app",
+    "productName": "Gull",
     "directories": {
       "output": "release"
     },
@@ -59,7 +59,7 @@
     "publish": {
       "provider": "github",
       "owner": "your-github-username",
-      "repo": "game-design-tool"
+      "repo": "gull"
     }
   }
 }

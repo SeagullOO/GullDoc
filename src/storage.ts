@@ -2,44 +2,32 @@
  * storage.ts — 存储抽象层
  *
  * 核心架构：提供统一的存储接口，底层根据运行环境自动切换：
- * - Electron 桌面端：通过 electronAPI 直接读写文件系统（folders.json / templates.json）
+ * - Electron 桌面端：工作区索引存 folders.json，文件存真实目录结构
  * - 浏览器端：使用 IndexedDB（Dexie.js 封装的 db 实例）
- *
- * 设计模式：策略模式 + Repository 模式
- * - 每个公共函数内部通过 `isElectron` 判断运行环境，选择对应的存储策略
- * - 对调用方完全透明：页面和 hooks 不需要知道数据存在文件系统还是 IndexedDB
- *
- * 为什么需要这个抽象层？
- * - Electron 桌面应用需要将数据保存在用户选择的本地文件夹中
- * - 浏览器版本需要通过 IndexedDB 实现离线持久化
- * - 统一接口避免业务代码中到处写 if/else 环境判断
- *
- * 导出函数：
- *   Folder CRUD:  storageLoadFolders, storageSaveFolder, storageGetFolder,
- *                  storageDeleteFolder, storageUpdateFolder
- *   Template CRUD: storageLoadTemplates, storageAddTemplate, storageDeleteTemplate
- *   Export:        storageExportFiles（导出为本地文件/浏览器下载）
  */
 
-// 存储抽象层：Electron 文件系统 或 浏览器 IndexedDB
 import { db } from "./db";
-import type { Folder, Template } from "./types";
+import type { Folder, FolderFile, Template } from "./types";
+import { generateId } from "./types";
 
-/** Electron 主进程暴露给渲染进程的 API 类型声明 */
 declare global {
   interface Window {
     electronAPI?: {
       readFile: (filename: string) => Promise<string | null>;
       writeFile: (filename: string, data: string) => Promise<boolean>;
       deleteFile: (filename: string) => Promise<boolean>;
-      listFiles: () => Promise<string[]>;
+      listFiles: () => Promise<{ name: string; isDirectory: boolean }[]>;
+      mkdir: (dirPath: string) => Promise<boolean>;
+      rmdir: (dirPath: string) => Promise<boolean>;
+      rename: (oldPath: string, newPath: string) => Promise<boolean>;
+      listDir: (dirPath: string) => Promise<{ name: string; path: string; isDirectory: boolean }[]>;
+      copyWorkspace: (srcDir: string) => Promise<string | null>;
       selectExportFolder: () => Promise<string | null>;
       writeExportFiles: (basePath: string, files: { relativePath: string; content: string }[]) => Promise<{ success: boolean; error?: string; count: number }>;
       selectFolder: () => Promise<string | null>;
       readDir: (dirPath: string) => Promise<{ name: string; isDirectory: boolean; isFile: boolean }[]>;
       readFileAt: (filePath: string) => Promise<string | null>;
       setZoomFactor: (factor: number) => void;
-      // Auto-updater
       checkForUpdates: () => Promise<{ dev?: boolean; success?: boolean; version?: string; error?: string }>;
       downloadUpdate: () => Promise<{ success?: boolean; error?: string }>;
       installUpdate: () => void;
@@ -48,18 +36,8 @@ declare global {
   }
 }
 
-/** 运行时环境判断：window.electronAPI 存在即为 Electron 桌面端 */
 const isElectron = !!window.electronAPI;
 
-/**
- * 确保 IndexedDB 数据库已打开（带超时保护）
- *
- * Dexie 在 db.open() 完成前会将表操作排队，但如果数据库被永久阻塞
- * （例如另一个标签页持有旧版本），我们需要暴露明确的错误而不是永久挂起。
- * 在 Electron 环境下直接跳过（使用文件系统，不需要 IndexedDB）。
- *
- * @param timeoutMs 超时时间（毫秒），默认 3000ms
- */
 async function ensureDbReady(timeoutMs = 3000): Promise<void> {
   if (isElectron) return;
   try {
@@ -69,58 +47,48 @@ async function ensureDbReady(timeoutMs = 3000): Promise<void> {
         setTimeout(() => reject(new Error("数据库连接超时")), timeoutMs)
       ),
     ]);
-  } catch {
-    // 数据库打开失败时，Dexie 会在后续表操作中拒绝——由调用方捕获。
-    // 这里仅用于超时后允许 UI 显示友好提示。
-  }
+  } catch {}
 }
 
-// ===== Folder CRUD =====
+// ═══════════════════════════════════════════════════════════════════════════
+// Folder 索引 CRUD（Electron: 直接扫描磁盘目录，无 folders.json）
+// ═══════════════════════════════════════════════════════════════════════════
 
-/** 将文件夹数组序列化为格式化的 JSON 字符串 */
-async function foldersToJSON(folders: Folder[]): Promise<string> {
-  return JSON.stringify(folders, null, 2);
+/** 目录名 → 数字 ID（简单 hash，确定性） */
+function nameToId(name: string): number {
+  let h = 5381;
+  for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) & 0x7fffffff;
+  return h;
 }
+/** 数字 ID → 目录名。loadFolders 时建立反向映射，存入 window.__folderNameMap */
+let nameMap: Map<number, string> = new Map();
 
-/** 从 JSON 字符串反序列化为文件夹数组 */
-async function foldersFromJSON(json: string): Promise<Folder[]> {
-  return JSON.parse(json);
-}
-
-/**
- * 加载所有文件夹
- *
- * Electron: 从文件系统读取 folders.json
- * 浏览器: 从 IndexedDB 按 updatedAt 降序查询
- */
+/** 列出 dataPath 下所有子目录 → 每个子目录即一个工作区 */
 export async function storageLoadFolders(): Promise<Folder[]> {
   if (isElectron) {
-    const data = await window.electronAPI!.readFile("folders.json");
-    return data ? await foldersFromJSON(data) : [];
+    const entries = await window.electronAPI!.listFiles();
+    nameMap = new Map();
+    const folders: Folder[] = [];
+    for (const e of entries) {
+      if (typeof e === 'object' && e.isDirectory) {
+        const id = nameToId(e.name);
+        nameMap.set(id, e.name);
+        folders.push({ id, name: e.name, files: [], folders: [], createdAt: Date.now(), updatedAt: Date.now() });
+      }
+    }
+    return folders.sort((a, b) => b.updatedAt - a.updatedAt);
   }
   return db.folders.orderBy("updatedAt").reverse().toArray();
 }
+/** 根据 ID 获取目录名 */
+export function getFolderNameById(id: number): string | undefined { return nameMap.get(id); }
 
-/**
- * 保存文件夹（新建或更新）
- *
- * 通过检查 folder.id 是否存在判断是更新还是新建：
- * - Electron 新建时用 Date.now() 生成 ID，更新时根据 id 覆盖数组中的对应项
- * - IndexedDB 使用 Dexie 的 add/update 方法
- *
- * @returns 文件夹 ID
- */
+/** 创建工作区：只建目录 */
 export async function storageSaveFolder(folder: Folder): Promise<number> {
   if (isElectron) {
-    const folders = await storageLoadFolders();
-    const idx = folders.findIndex((f) => f.id === folder.id);
-    if (idx >= 0) {
-      folders[idx] = folder;
-    } else {
-      folder.id = Date.now();
-      folders.push(folder);
-    }
-    await window.electronAPI!.writeFile("folders.json", await foldersToJSON(folders));
+    await window.electronAPI!.mkdir(folder.name);
+    folder.id = nameToId(folder.name);
+    nameMap.set(folder.id, folder.name);
     return folder.id!;
   }
   if (folder.id) {
@@ -130,48 +98,112 @@ export async function storageSaveFolder(folder: Folder): Promise<number> {
   return db.folders.add(folder as any);
 }
 
-/** 根据 ID 获取单个文件夹 */
 export async function storageGetFolder(id: number): Promise<Folder | undefined> {
   if (isElectron) {
-    const folders = await storageLoadFolders();
-    return folders.find((f) => f.id === id);
+    const name = nameMap.get(id);
+    if (!name) { const folders = await storageLoadFolders(); return folders.find((f) => f.id === id); }
+    // 直接从已知名称加载，避免重新扫描
+    const { files, folders } = await storageListWorkspaceFiles(name);
+    return { id, name, files, folders, createdAt: Date.now(), updatedAt: Date.now() };
   }
   return db.folders.get(id);
 }
 
-/** 根据 ID 删除文件夹 */
-export async function storageDeleteFolder(id: number): Promise<void> {
+export async function storageDeleteFolder(id: number, name?: string): Promise<void> {
   if (isElectron) {
-    const folders = await storageLoadFolders();
-    await window.electronAPI!.writeFile("folders.json", await foldersToJSON(folders.filter((f) => f.id !== id)));
+    if (name) await window.electronAPI!.rmdir(name);
     return;
   }
   await db.folders.delete(id);
 }
 
-/**
- * 部分更新文件夹
- *
- * 使用不可变模式：从存储读取 → 合并变更 → 写回。
- * Electron 版本每次都需要全量读写 JSON 文件；
- * IndexedDB 版本使用 Dexie 的 update 方法实现增量更新。
- */
 export async function storageUpdateFolder(id: number, changes: Partial<Folder>): Promise<void> {
   if (isElectron) {
     const folders = await storageLoadFolders();
-    const idx = folders.findIndex((f) => f.id === id);
-    if (idx >= 0) {
-      folders[idx] = { ...folders[idx], ...changes, updatedAt: Date.now() };
-      await window.electronAPI!.writeFile("folders.json", await foldersToJSON(folders));
+    const folder = folders.find((f) => f.id === id);
+    if (folder && changes.name && changes.name !== folder.name) {
+      await window.electronAPI!.rename(folder.name, changes.name);
     }
     return;
   }
   await db.folders.update(id, { ...changes, updatedAt: Date.now() });
 }
 
-// ===== Template CRUD =====
+// ═══════════════════════════════════════════════════════════════════════════
+// 工作区文件系统操作（Electron only）
+// ═══════════════════════════════════════════════════════════════════════════
 
-/** 加载所有模版（按创建时间降序） */
+/** 列出工作区目录下的所有文件和文件夹 */
+export async function storageListWorkspaceFiles(folderName: string): Promise<{ files: FolderFile[]; folders: string[] }> {
+  if (!isElectron) return { files: [], folders: [] };
+  const entries = await window.electronAPI!.listDir(folderName);
+  const folderFileMap = new Map<string, FolderFile>();
+  const folderPaths: string[] = [];
+  for (const e of entries) {
+    if (e.isDirectory) {
+      folderPaths.push(e.path);
+    } else {
+      const ext = e.name.split(".").pop()?.toLowerCase();
+      const type = ext === "md" ? "md" : "excel";
+      folderFileMap.set(e.path, {
+        id: generateId(), name: e.path, type,
+        content: type === "md" ? "" : { data: [[]] },
+        createdAt: Date.now(), updatedAt: Date.now(),
+      });
+    }
+  }
+  // Sort: folders first, then files
+  folderPaths.sort();
+  const files = Array.from(folderFileMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return { files, folders: folderPaths };
+}
+
+/** 读工作区中的文件内容 */
+export async function storageReadWorkspaceFile(folderName: string, relPath: string): Promise<string | null> {
+  if (!isElectron) return null;
+  return window.electronAPI!.readFile(`${folderName}/${relPath}`);
+}
+
+/** 写/创建工作区文件 */
+export async function storageWriteWorkspaceFile(folderName: string, relPath: string, content: string): Promise<boolean> {
+  if (!isElectron) return false;
+  // 确保父目录存在
+  const dir = relPath.includes("/") ? relPath.split("/").slice(0, -1).join("/") : "";
+  if (dir) await window.electronAPI!.mkdir(`${folderName}/${dir}`);
+  return window.electronAPI!.writeFile(`${folderName}/${relPath}`, content);
+}
+
+/** 删除工作区文件 */
+export async function storageDeleteWorkspaceFile(folderName: string, relPath: string): Promise<boolean> {
+  if (!isElectron) return false;
+  return window.electronAPI!.deleteFile(`${folderName}/${relPath}`);
+}
+
+/** 重命名/移动工作区文件或目录 */
+export async function storageRenameWorkspaceEntry(folderName: string, oldPath: string, newPath: string): Promise<boolean> {
+  if (!isElectron) return false;
+  // 确保目标父目录存在
+  const dir = newPath.includes("/") ? newPath.split("/").slice(0, -1).join("/") : "";
+  if (dir) await window.electronAPI!.mkdir(`${folderName}/${dir}`);
+  return window.electronAPI!.rename(`${folderName}/${oldPath}`, `${folderName}/${newPath}`);
+}
+
+/** 创建工作区子目录 */
+export async function storageCreateWorkspaceDir(folderName: string, dirPath: string): Promise<boolean> {
+  if (!isElectron) return false;
+  return window.electronAPI!.mkdir(`${folderName}/${dirPath}`);
+}
+
+/** 删除工作区子目录 */
+export async function storageDeleteWorkspaceDir(folderName: string, dirPath: string): Promise<boolean> {
+  if (!isElectron) return false;
+  return window.electronAPI!.rmdir(`${folderName}/${dirPath}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Template CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+
 export async function storageLoadTemplates(): Promise<Template[]> {
   if (isElectron) {
     const data = await window.electronAPI!.readFile("templates.json");
@@ -180,7 +212,6 @@ export async function storageLoadTemplates(): Promise<Template[]> {
   return db.templates.orderBy("createdAt").reverse().toArray();
 }
 
-/** 添加新模版 */
 export async function storageAddTemplate(template: Template): Promise<number> {
   if (isElectron) {
     const templates = await storageLoadTemplates();
@@ -192,7 +223,6 @@ export async function storageAddTemplate(template: Template): Promise<number> {
   return db.templates.add(template as any);
 }
 
-/** 删除模版 */
 export async function storageDeleteTemplate(id: number): Promise<void> {
   if (isElectron) {
     const templates = await storageLoadTemplates();
@@ -202,16 +232,10 @@ export async function storageDeleteTemplate(id: number): Promise<void> {
   await db.templates.delete(id);
 }
 
-// ===== 导出（Electron 原生对话框 / 浏览器下载） =====
+// ═══════════════════════════════════════════════════════════════════════════
+// 导出
+// ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * 导出文件到本地
- *
- * Electron: 打开系统文件夹选择器，写入所有文件到选定目录
- * 浏览器: 逐个触发文件下载（每个文件一个 Blob URL）
- *
- * @returns 导出结果描述字符串
- */
 export async function storageExportFiles(files: { relativePath: string; content: string }[]): Promise<string> {
   if (isElectron) {
     const basePath = await window.electronAPI!.selectExportFolder();
@@ -220,7 +244,6 @@ export async function storageExportFiles(files: { relativePath: string; content:
     if (!result.success) throw new Error(result.error || "Export failed");
     return `已导出 ${result.count} 个文件`;
   }
-  // 浏览器回退方案：逐个下载文件
   files.forEach((f) => {
     const blob = new Blob([f.content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);

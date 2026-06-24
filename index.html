@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>游戏策划文档工具</title>
+    <title>Gull</title>
     <link rel="stylesheet" href="/vendor/handsontable.full.min.css" />
     <style>
       /* Override Handsontable CSS for dark mode — uses CSS variables for theme compatibility */
@@ -17,8 +17,15 @@
       textarea.handsontableInput{background:var(--bg-surface,#2a2a2a)!important;color:var(--text-primary,#dadada)!important;border-color:var(--accent,#a882ff)!important}
     </style>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin:0;background:#181818;">
+    <div id="root">
+      <div id="splash" style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px;font-family:'Inter',-apple-system,sans-serif;">
+        <div style="width:32px;height:32px;border:2px solid rgba(255,255,255,0.12);border-top-color:#a882ff;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+        <div style="color:#666;font-size:13px;">Gull</div>
+      </div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    <script>window.addEventListener('DOMContentLoaded',()=>{const s=document.getElementById('splash');if(s)setTimeout(()=>{if(s.parentNode)s.remove()},5000);});</script>
     <script type="module" src="/src/main.tsx"></script>
     <!-- Handsontable + HyperFormula: vendored for offline use, deferred to not block page render -->
     <script defer src="/vendor/handsontable.full.min.js"></script>

@@ -1,10 +1,10 @@
 /**
  * Settings.tsx — 设置页面（模态浮层）
  *
- * 以悬浮模态窗口形式覆盖在当前页面上，通过 React Router 的 navigate(-1) 关闭。
+ * 以悬浮模态窗口形式覆盖在当前页面上，通过 onClose 回调关闭。
  *
  * 设置项分四个标签页：通用 / 外观 / 存储 / 关于
- * 所有设置保存在 localStorage (key: gdt_settings)，语言偏好保存在 gdt_lang。
+ * 所有设置保存在 localStorage (key: gull_settings)，语言偏好保存在 gull_lang。
  *
  * 性能优化：
  * - 移除了 backdrop-filter: blur() — 大尺寸毛玻璃导致 GPU 持续重绘
@@ -13,11 +13,12 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
-import { useNavigate } from "react-router-dom";
 import { t, getLang, setLang } from "../i18n";
 import type { Lang } from "../i18n";
+import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, ZOOM_DEFAULT } from "../config";
+import { SettingsGearIcon, MonitorIcon, StorageCubeIcon, InfoCircleIcon } from "../components/icons";
 
-const STORAGE_KEY = "gdt_settings";
+const STORAGE_KEY = "gull_settings";
 
 interface SettingsData {
   theme: "dark" | "light" | "system";
@@ -31,11 +32,11 @@ function loadSettings(): SettingsData {
       const parsed = JSON.parse(raw);
       return {
         theme: ["dark", "light", "system"].includes(parsed.theme) ? parsed.theme : "dark",
-        zoom: typeof parsed.zoom === "number" && parsed.zoom >= 70 && parsed.zoom <= 150 ? parsed.zoom : 100,
+        zoom: typeof parsed.zoom === "number" && parsed.zoom >= ZOOM_MIN && parsed.zoom <= ZOOM_MAX ? parsed.zoom : ZOOM_DEFAULT,
       };
     }
   } catch {}
-  return { theme: "dark", zoom: 100 };
+  return { theme: "dark", zoom: ZOOM_DEFAULT };
 }
 
 function saveSettings(s: SettingsData): void {
@@ -50,41 +51,9 @@ function applyThemeClass(theme: string): void {
 
 function getStoragePath(): string {
   return typeof window !== "undefined" && "electronAPI" in window
-    ? "Electron userData"
+    ? ""
     : "浏览器 IndexedDB";
 }
-
-// ── SVG 图标（组件外定义，避免每帧重建）──
-
-const SettingsIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="8" cy="8" r="2.8" />
-    <path d="M8 1.2v1.8M8 13v1.8M13.2 8h-1.8M4.6 8H2.8M11.7 4.3l-1.3 1.3M5.6 10.4l-1.3 1.3M11.7 11.7l-1.3-1.3M5.6 5.6L4.3 4.3" />
-  </svg>
-);
-
-const AppearanceIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="1" y="2" width="14" height="12" rx="1.5" />
-    <path d="M5 14V2M1 6h4M1 10h4" />
-  </svg>
-);
-
-const StorageIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 4.5l4.5-2 7 2.5v7l-7 2.5-4.5-2.5v-7.5z" />
-    <path d="M2 4.5l4.5 2.5v7.5" />
-    <path d="M6.5 7l7-2.5" />
-    <path d="M6.5 7v7.5" />
-  </svg>
-);
-
-const AboutIcon = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="8" cy="8" r="6.5" />
-    <path d="M8 5v0M8 8v3" />
-  </svg>
-);
 
 // ── ZoomInput ─────────────────────────────────────────────────────────────────
 
@@ -100,7 +69,7 @@ const ZoomInput = memo(function ZoomInput({ value, onChange, lang }: { value: nu
     }
   }, [editing]);
 
-  const clamp = (v: number): number => Math.min(150, Math.max(70, Math.round(v / 10) * 10));
+  const clamp = (v: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(v / ZOOM_STEP) * ZOOM_STEP));
 
   useEffect(() => {
     if (!dragStart) return;
@@ -118,7 +87,7 @@ const ZoomInput = memo(function ZoomInput({ value, onChange, lang }: { value: nu
     return (
       <input
         ref={inputRef}
-        type="number" min={70} max={150} step={10}
+        type="number" min={ZOOM_MIN} max={ZOOM_MAX} step={ZOOM_STEP}
         value={value}
         onChange={(e) => onChange(clamp(Number(e.target.value)))}
         onBlur={() => setEditing(false)}
@@ -145,11 +114,17 @@ const ZoomInput = memo(function ZoomInput({ value, onChange, lang }: { value: nu
 
 // ── Settings 主组件 ───────────────────────────────────────────────────────────
 
-const Settings = memo(function Settings() {
-  const navigate = useNavigate();
+const Settings = memo(function Settings({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<SettingsData>(loadSettings);
   const [storagePath, setStoragePath] = useState<string>(getStoragePath);
   const [activeNav, setActiveNav] = useState<string>("stgGeneral");
+  // 异步获取 Electron 真实存储路径
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api?.getDataPath) {
+      api.getDataPath().then((p: string) => setStoragePath(p));
+    }
+  }, []);
   const [lang, setLangState] = useState<Lang>(getLang);
   const isElectron = typeof window !== "undefined" && "electronAPI" in window;
   const api = (window as any).electronAPI;
@@ -203,13 +178,11 @@ const Settings = memo(function Settings() {
     api?.installUpdate?.();
   }, [api]);
 
-  const handleClose = useCallback(() => navigate(-1), [navigate]);
-
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleClose]);
+  }, [onClose]);
 
   const persistAndApply = useCallback((next: SettingsData) => {
     setSettings(next);
@@ -228,10 +201,10 @@ const Settings = memo(function Settings() {
   }, []);
 
   const navItems = useMemo(() => [
-    { key: "stgGeneral", icon: <SettingsIcon /> },
-    { key: "stgAppearance", icon: <AppearanceIcon /> },
-    { key: "stgStorage", icon: <StorageIcon /> },
-    { key: "stgAbout", icon: <AboutIcon /> },
+    { key: "stgGeneral",     icon: <SettingsGearIcon /> },
+    { key: "stgAppearance",  icon: <MonitorIcon /> },
+    { key: "stgStorage",     icon: <StorageCubeIcon /> },
+    { key: "stgAbout",       icon: <InfoCircleIcon /> },
   ], []);
 
   return (
@@ -240,14 +213,14 @@ const Settings = memo(function Settings() {
       style={{
         position: "fixed", inset: 0, zIndex: 1000,
         display: "flex", alignItems: "center", justifyContent: "center",
-        background: "rgba(0, 0, 0, 0.55)",
+        background: "rgba(0, 0, 0, 0.65)",
       }}
-      onClick={handleClose}
+      onClick={onClose}
     >
       <div
         style={{
-          display: "flex", width: "80vw", height: "80vh",
-          maxWidth: 900, minWidth: 560, minHeight: 400,
+          display: "flex", width: "80vw", height: "90vh",
+          maxWidth: 1200, minWidth: 560, minHeight: 400,
           borderRadius: "var(--radius-m)", overflow: "hidden",
           background: "var(--stg-bg)",
           border: "1px solid var(--border-medium)",
@@ -258,7 +231,7 @@ const Settings = memo(function Settings() {
       >
         {/* Close button */}
         <button
-          onClick={handleClose}
+          onClick={onClose}
           style={{
             position: "absolute", top: 10, right: 10,
             width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
@@ -349,19 +322,6 @@ const Settings = memo(function Settings() {
                     </div>
                   </div>
                 </div>
-                <div className="stg-row">
-                  <div className="stg-info">
-                    <div className="stg-label">{t("stgUiZoom", lang)}</div>
-                    <div className="stg-hint">{t("stgUiZoomDesc", lang)}</div>
-                  </div>
-                  <div className="stg-control">
-                    <ZoomInput
-                      value={settings.zoom}
-                      onChange={(v) => persistAndApply({ ...settings, zoom: v })}
-                      lang={lang}
-                    />
-                  </div>
-                </div>
               </div>
             </>
           )}
@@ -378,24 +338,24 @@ const Settings = memo(function Settings() {
                   <div className="stg-info">
                     <div className="stg-label">{t("stgStoragePathLabel", lang)}</div>
                     <div className="stg-hint" style={{
-                      fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
                       maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }} title={storagePath}>
-                      {storagePath}
+                    }} title={storagePath || undefined}>
+                      {storagePath || (isElectron ? "加载中..." : "浏览器 IndexedDB")}
                     </div>
                   </div>
-                  <div className="stg-control">
-                    {isElectron ? (
+                  <div className="stg-control" style={{ display: "flex", gap: 6 }}>
+                    {isElectron && (
                       <button className="stg-btn" onClick={async () => {
                         const api = (window as any).electronAPI;
                         if (api?.selectStoragePath) {
                           const p = await api.selectStoragePath();
-                          if (p) setStoragePath(p);
+                          if (p) { setStoragePath(p); alert(lang === "zh" ? `已更改为: ${p}` : `Changed to: ${p}`); }
                         }
                       }}>
-                        {t("change", lang)}
+                        {lang === "zh" ? "更改" : "Change"}
                       </button>
-                    ) : (
+                    )}
+                    {!isElectron && (
                       <span style={{ fontSize: 12, color: "var(--stg-muted)" }}>{storagePath}</span>
                     )}
                   </div>
@@ -414,7 +374,7 @@ const Settings = memo(function Settings() {
                 <div className="stg-version-block" style={{ flexDirection: "column", gap: 12, alignItems: "stretch" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
-                      <div className="stg-app-name">OO Game Tool</div>
+                      <div className="stg-app-name">Gull</div>
                       <div className="stg-meta">
                         版本 1.0.0 (build 2406.22)<br />
                         React 18 · Vite 5 · Electron 42<br />

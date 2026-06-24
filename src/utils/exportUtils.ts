@@ -286,12 +286,8 @@ export async function exportFolder(folder: Folder): Promise<string> {
       const cellMeta = file.content?.cellMeta as any[][] | undefined;
       // 导出为带样式的 HTML（.xls 扩展名，Excel 可打开并保留颜色/粗体/斜体）
       const htmlContent = excelToStyledHtml(excelData || [[""]], cellMeta);
-      const htmlName = file.name + ".xls";
+      const htmlName = file.name.replace(/\.json$/, "") + ".xls";
       fileContents.push({ name: htmlName, content: htmlContent });
-      // 同时导出纯文本 CSV 以兼容其他工具
-      const csvContent = toCsv(excelData || [[""]]);
-      const csvName = file.name + ".csv";
-      fileContents.push({ name: csvName, content: csvContent });
     }
   }
 

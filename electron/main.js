@@ -1,7 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, protocol, Menu, screen, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { autoUpdater } = require("electron-updater");
+// electron-updater 是可选依赖，打包时可能不存在
+let autoUpdater = null;
+try {
+  autoUpdater = require("electron-updater").autoUpdater;
+} catch { /* electron-updater not available */ }
 
 // Register custom scheme BEFORE app ready — required for CORS
 protocol.registerSchemesAsPrivileged([
@@ -14,51 +18,114 @@ const distDir = path.join(__dirname, "..", "dist");
 let mainWindow = null;
 
 // ── Auto-updater 配置 ─────────────────────────────────────────────────────
-// 仅在生产模式 (asar) 下启用；让用户选择是否下载
-if (!isDev) {
+if (autoUpdater && !isDev) {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 }
 
 // ── Auto-updater 事件：转发到渲染进程 ────────────────────────────────────
-autoUpdater.on("checking-for-update", () => {
-  mainWindow?.webContents.send("update:checking");
-});
-autoUpdater.on("update-available", (info) => {
-  mainWindow?.webContents.send("update:available", info.version);
-});
-autoUpdater.on("update-not-available", () => {
-  mainWindow?.webContents.send("update:not-available");
-});
-autoUpdater.on("download-progress", (progress) => {
-  mainWindow?.webContents.send("update:progress", Math.round(progress.percent));
-});
-autoUpdater.on("update-downloaded", () => {
-  mainWindow?.webContents.send("update:downloaded");
-});
-autoUpdater.on("error", (err) => {
-  mainWindow?.webContents.send("update:error", err.message);
-});
+if (autoUpdater) {
+  autoUpdater.on("checking-for-update", () => {
+    mainWindow?.webContents.send("update:checking");
+  });
+  autoUpdater.on("update-available", (info) => {
+    mainWindow?.webContents.send("update:available", info.version);
+  });
+  autoUpdater.on("update-not-available", () => {
+    mainWindow?.webContents.send("update:not-available");
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow?.webContents.send("update:progress", Math.round(progress.percent));
+  });
+  autoUpdater.on("update-downloaded", () => {
+    mainWindow?.webContents.send("update:downloaded");
+  });
+  autoUpdater.on("error", (err) => {
+    mainWindow?.webContents.send("update:error", err.message);
+  });
+}
+
+function getStorageConfigPath() {
+  return path.join(app.getPath("userData"), "storage-config.json");
+}
+
+function getStorageConfig() {
+  try {
+    const p = getStorageConfigPath();
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf-8"));
+  } catch {}
+  return {};
+}
 
 function getDataPath() {
-  const dataDir = path.join(app.getPath("userData"), "data");
+  const cfg = getStorageConfig();
+  const dataDir = cfg.customPath || path.join(app.getPath("userData"), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   return dataDir;
+}
+
+// ── Window state persistence ───────────────────────────────────────────────
+const STATE_PATH = path.join(app.getPath("userData"), "window-state.json");
+
+function loadWindowState() {
+  try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf-8")); }
+  catch { return null; }
+}
+
+function saveWindowState(win) {
+  try {
+    const state = win.isMaximized()
+      ? { isMaximized: true }
+      : { ...win.getBounds(), isMaximized: false };
+    fs.writeFileSync(STATE_PATH, JSON.stringify(state));
+  } catch {}
 }
 
 function createWindow() {
   Menu.setApplicationMenu(null);
 
-  mainWindow = new BrowserWindow({
+  const saved = loadWindowState();
+  const opts = {
     width: 1400, height: 900,
-    minWidth: 900, minHeight: 600,
+    minWidth: 600, minHeight: 400,
     frame: false,
-    title: "游戏策划文档工具",
+    show: false,                  // 等待 ready-to-show 再显示，避免白屏闪烁
+    backgroundColor: "#181818",    // 暗色背景，防止窗口出现时闪白
+    title: "Gull",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
+  };
+
+  // 恢复上次的窗口位置/大小（验证是否仍在可用显示器范围内）
+  if (saved && !saved.isMaximized && saved.width && saved.height) {
+    const displays = screen.getAllDisplays();
+    const onScreen = displays.some((d) => {
+      const { x, y, width, height } = d.workArea;
+      return (
+        saved.x >= x - 50 && saved.y >= y - 50 &&
+        saved.x + 50 <= x + width &&
+        saved.y + 50 <= y + height
+      );
+    });
+    if (onScreen) {
+      Object.assign(opts, { x: saved.x, y: saved.y, width: saved.width, height: saved.height });
+    }
+  }
+
+  mainWindow = new BrowserWindow(opts);
+
+  // 如果上次是最大化状态，恢复最大化
+  if (saved?.isMaximized) mainWindow.maximize();
+
+  // 锁定 Electron 原生缩放为 1.0，仅由 CSS zoom 控制界面缩放
+  // 必须在 loadURL 之前设置，否则 dev/packaged 加载时序差异会导致不同的默认缩放
+  mainWindow.webContents.setZoomFactor(1);
+  // 页面完成加载后再次确保（覆盖可能的 origin 级别覆盖）
+  mainWindow.webContents.on("did-finish-load", () => {
+    mainWindow.webContents.setZoomFactor(1);
   });
 
   if (isDev) {
@@ -67,9 +134,28 @@ function createWindow() {
     mainWindow.loadURL("app://./");
   }
 
+  // ready-to-show: 首帧渲染完成后才显示窗口，消除启动白屏
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+  });
+
+  // ── Window state persistence: debounced save on move/resize ──
+  let saveTimeout;
+  const scheduleSave = () => {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => saveWindowState(mainWindow), 500);
+  };
+  mainWindow.on("resize", scheduleSave);
+  mainWindow.on("move", scheduleSave);
+  mainWindow.on("maximize", () => {
+    mainWindow.webContents.send("window-maximized");
+    scheduleSave();
+  });
+  mainWindow.on("unmaximize", () => {
+    mainWindow.webContents.send("window-unmaximized");
+    scheduleSave();
+  });
   mainWindow.on("closed", () => { mainWindow = null; });
-  mainWindow.on("maximize", () => mainWindow.webContents.send("window-maximized"));
-  mainWindow.on("unmaximize", () => mainWindow.webContents.send("window-unmaximized"));
 }
 
 // IPC
@@ -87,8 +173,66 @@ ipcMain.handle("fs:deleteFile", async (_e, filename) => {
   catch { return false; }
 });
 ipcMain.handle("fs:listFiles", async () => {
-  try { return fs.readdirSync(getDataPath()).filter(f => f.endsWith(".json")); }
+  try {
+    const dp = getDataPath();
+    if (!fs.existsSync(dp)) return [];
+    return fs.readdirSync(dp, { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => ({ name: e.name, isDirectory: true }));
+  }
   catch { return []; }
+});
+// ── 工作区文件系统 IPC ───────────────────────────────────────────────────
+ipcMain.handle("fs:mkdir", async (_e, dirPath) => {
+  const fp = path.join(getDataPath(), dirPath);
+  try { fs.mkdirSync(fp, { recursive: true }); return true; }
+  catch { return false; }
+});
+ipcMain.handle("fs:rmdir", async (_e, dirPath) => {
+  const fp = path.join(getDataPath(), dirPath);
+  try { fs.rmSync(fp, { recursive: true, force: true }); return true; }
+  catch { return false; }
+});
+ipcMain.handle("fs:rename", async (_e, oldPath, newPath) => {
+  const fpOld = path.join(getDataPath(), oldPath);
+  const fpNew = path.join(getDataPath(), newPath);
+  try { fs.renameSync(fpOld, fpNew); return true; }
+  catch { return false; }
+});
+ipcMain.handle("fs:listDir", async (_e, dirPath) => {
+  const fp = path.join(getDataPath(), dirPath || "");
+  try {
+    if (!fs.existsSync(fp)) return [];
+    const walk = (dir, prefix) => {
+      const results = [];
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          results.push({ name: entry.name, path: rel, isDirectory: true });
+          results.push(...walk(path.join(dir, entry.name), rel));
+        } else {
+          results.push({ name: entry.name, path: rel, isDirectory: false });
+        }
+      }
+      return results;
+    };
+    return walk(fp, "");
+  } catch { return []; }
+});
+// 复制工作区到用户选择的目录
+ipcMain.handle("fs:copyWorkspace", async (_e, srcDir) => {
+  const src = path.join(getDataPath(), srcDir);
+  if (!fs.existsSync(src)) return null;
+  const r = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory", "createDirectory"],
+    title: "选择目标位置",
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  const dest = path.join(r.filePaths[0], srcDir);
+  try {
+    fs.cpSync(src, dest, { recursive: true });
+    return dest;
+  } catch { return null; }
 });
 ipcMain.handle("export:selectFolder", async () => {
   const r = await dialog.showOpenDialog(mainWindow, { properties: ["openDirectory", "createDirectory"], title: "选择导出目录" });
@@ -141,9 +285,36 @@ ipcMain.handle("zoom:setFactor", async (_e, factor) => {
   if (mainWindow) mainWindow.webContents.setZoomFactor(factor);
 });
 
+ipcMain.handle("getDataPath", async () => {
+  return getDataPath();
+});
+
+ipcMain.handle("selectStoragePath", async () => {
+  const r = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory", "createDirectory"],
+    title: "选择默认文件存储位置",
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  const newPath = r.filePaths[0];
+  try {
+    fs.writeFileSync(getStorageConfigPath(), JSON.stringify({ customPath: newPath }), "utf-8");
+  } catch {}
+  return newPath;
+});
+
+ipcMain.handle("shell:openPath", async (_e, p) => {
+  return shell.openPath(p);
+});
+
 // ── Auto-updater IPC ───────────────────────────────────────────────────
 ipcMain.handle("update:check", async () => {
+  if (!autoUpdater) return { error: "electron-updater not available" };
   if (isDev) return { dev: true };
+  // 检查 app-update.yml 是否存在（portable 打包可能不包含此文件）
+  const updateConfigPath = path.join(process.resourcesPath || "", "app-update.yml");
+  if (!fs.existsSync(updateConfigPath)) {
+    return { error: "更新配置不存在（当前为便携版或未配置发布目标）" };
+  }
   try {
     const result = await autoUpdater.checkForUpdates();
     return { success: true, version: result?.updateInfo?.version };
@@ -153,6 +324,7 @@ ipcMain.handle("update:check", async () => {
 });
 
 ipcMain.handle("update:download", async () => {
+  if (!autoUpdater) return { error: "electron-updater not available" };
   try {
     await autoUpdater.downloadUpdate();
     return { success: true };
@@ -162,7 +334,7 @@ ipcMain.handle("update:download", async () => {
 });
 
 ipcMain.handle("update:install", () => {
-  autoUpdater.quitAndInstall();
+  if (autoUpdater) autoUpdater.quitAndInstall();
 });
 
 // Window control IPC

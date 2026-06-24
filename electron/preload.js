@@ -10,15 +10,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
   writeFile: (filename, data) => ipcRenderer.invoke("fs:writeFile", filename, data),
   deleteFile: (filename) => ipcRenderer.invoke("fs:deleteFile", filename),
   listFiles: () => ipcRenderer.invoke("fs:listFiles"),
+  // Workspace filesystem
+  mkdir: (dirPath) => ipcRenderer.invoke("fs:mkdir", dirPath),
+  rmdir: (dirPath) => ipcRenderer.invoke("fs:rmdir", dirPath),
+  rename: (oldPath, newPath) => ipcRenderer.invoke("fs:rename", oldPath, newPath),
+  listDir: (dirPath) => ipcRenderer.invoke("fs:listDir", dirPath),
 
-  // Export
+  // Export / Workspace move
   selectExportFolder: () => ipcRenderer.invoke("export:selectFolder"),
+  copyWorkspace: (srcDir) => ipcRenderer.invoke("fs:copyWorkspace", srcDir),
   writeExportFiles: (basePath, files) => ipcRenderer.invoke("export:writeFiles", basePath, files),
 
   // Dialog / file system
   selectFolder: () => ipcRenderer.invoke("dialog:selectFolder"),
   readDir: (dirPath) => ipcRenderer.invoke("fs:readDir", dirPath),
   readFileAt: (filePath) => ipcRenderer.invoke("fs:readFileAt", filePath),
+
+  // Shell
+  getDataPath: () => ipcRenderer.invoke("getDataPath"),
+  selectStoragePath: () => ipcRenderer.invoke("selectStoragePath"),
+  openPath: (p) => ipcRenderer.invoke("shell:openPath", p),
 
   // Zoom
   setZoomFactor: (factor) => ipcRenderer.invoke("zoom:setFactor", factor),

@@ -1,17 +1,17 @@
 /**
  * db.ts — IndexedDB 数据库层（Dexie.js）
  *
- * 封装 GameDesignTool 的 IndexedDB 数据库，管理 folders 和 templates 表。
+ * 封装 GullDB 的 IndexedDB 数据库，管理 folders 和 templates 表。
  * 使用 Dexie.js 的版本控制机制实现 schema 迁移。
  *
  * 关键设计决策：
- * - HMR 安全单例：将 db 实例挂在 window.__GDT_DB__ 上，确保 Vite 热更新时
+ * - HMR 安全单例：将 db 实例挂在 window.__GULL_DB__ 上，确保 Vite 热更新时
  *   复用同一个 IndexedDB 连接，避免重复打开数据库被浏览器阻塞。
  * - v1 → v2 迁移：将旧版 documents 表的数据转换为 folders 表格式，
  *   每个旧文档变为一个文件夹（含一个 Markdown 文件）。
  *
  * 导出：
- * - db: GameDesignDB 单例实例
+ * - db: GullDB 单例实例
  */
 
 import Dexie, { type Table } from "dexie";
@@ -19,18 +19,18 @@ import type { Folder, Template } from "./types";
 import { generateId } from "./types";
 
 /**
- * GameDesignDB — 游戏设计工具的 IndexedDB 数据库
+ * GullDB — Gull的 IndexedDB 数据库
  *
  * 表结构：
  * - folders:   按 updatedAt 索引，支持增删改查
  * - templates: 按 createdAt 索引，用于工作区模版管理
  */
-class GameDesignDB extends Dexie {
+class GullDB extends Dexie {
   folders!: Table<Folder, number>;
   templates!: Table<Template, number>;
 
   constructor() {
-    super("GameDesignTool");
+    super("GullDB");
 
     // v1: 初始 schema，包含 documents 表（已弃用）
     this.version(1).stores({
@@ -90,5 +90,5 @@ class GameDesignDB extends Dexie {
  * 复用已有连接而非创建新连接，避免 IndexedDB 连接被阻塞。
  */
 const g = window as unknown as Record<string, unknown>;
-export const db: GameDesignDB =
-  (g.__GDT_DB__ as GameDesignDB) ?? (g.__GDT_DB__ = new GameDesignDB());
+export const db: GullDB =
+  (g.__GULL_DB__ as GullDB) ?? (g.__GULL_DB__ = new GullDB());

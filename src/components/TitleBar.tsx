@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useLocation } from "react-router-dom";
 import { t, getLang } from "../i18n";
+import { TITLE_BAR_HEIGHT } from "../config";
+import { GearIcon, FolderIcon, SidebarIcon, SearchIcon, MinimizeIcon, MaximizeIcon, RestoreIcon, CloseIcon } from "./icons";
 
 /**
  * TitleBar — 应用顶层标题栏（模仿 VS Code 风格的自定义窗口栏）
@@ -31,14 +32,13 @@ import { t, getLang } from "../i18n";
 interface TitleBarProps {
   onToggleSidebar: () => void;
   onSearch: () => void;
+  onOpenSettings: () => void;
   sidebarOpen?: boolean;
   activeFileName?: string;
 }
 
-function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileName }: TitleBarProps) {
+function TitleBar({ onToggleSidebar, onSearch, onOpenSettings, sidebarOpen = true, activeFileName }: TitleBarProps) {
   const lang = getLang();
-  const navigate = useNavigate();
-  const location = useLocation();
   const api = (window as any).electronAPI;
   const [isMaximized, setIsMaximized] = useState(false);
   const [fileMenuOpen, setFileMenuOpen] = useState(false);
@@ -59,8 +59,8 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
   const handleMaximize = () => api?.windowMaximize?.();
   const handleClose = () => api?.windowClose?.();
 
-  // 标题栏高度 = 30px 与 VS Code 风格一致
-  const barH = 30;
+  // 标题栏高度
+  const barH = TITLE_BAR_HEIGHT;
 
   return (
     <div
@@ -73,21 +73,18 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
         WebkitAppRegion: "drag",
         userSelect: "none",
         flexShrink: 0,
-        paddingLeft: 6,
+        paddingLeft: 10,
         paddingRight: 6,
       }}
     >
       {/* Left: settings + sidebar toggle + search */}
-      <div style={{ display: "flex", alignItems: "center", gap: 2, WebkitAppRegion: "no-drag" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, WebkitAppRegion: "no-drag" }}>
         <button
-          onClick={() => location.pathname === "/settings" ? navigate(-1) : navigate("/settings")}
+          onClick={onOpenSettings}
           title={t("settings", lang)}
           className="win-btn"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
+          <GearIcon width={18} height={18} />
         </button>
         <button
           ref={fileMenuBtnRef}
@@ -95,9 +92,7 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
           title={t("fileMenu", lang)}
           className="win-btn"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
+          <FolderIcon width={18} height={18} />
         </button>
         {/* 文件 dropdown menu: 通过 Portal 渲染到 document.body，避免被父容器裁剪 */}
         {fileMenuOpen && fileMenuBtnRef.current && createPortal(
@@ -127,10 +122,10 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
             <div className="context-menu-divider" />
             <button className="context-menu-item" onClick={() => {
               setFileMenuOpen(false);
-              const fn = (window as any).__openWorkspace;
+              const fn = (window as any).__moveWorkspace;
               if (fn) fn();
             }}>
-              {t("openWorkspace", lang)}
+              {t("moveWorkspace", lang)}
             </button>
           </div>,
           document.body, // Portal 目标：挂载到 body 以突破所有 overflow/z-index 限制
@@ -147,20 +142,14 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
           title={sidebarOpen ? t("toggleSidebar", lang) : t("expandSidebar", lang)}
           className="win-btn"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
+          <SidebarIcon width={18} height={18} />
         </button>
         <button
           onClick={onSearch}
           title={t("search", lang)}
           className="win-btn"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <SearchIcon width={18} height={18} />
         </button>
       </div>
 
@@ -187,9 +176,7 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
           className="win-btn win-ctrl"
           title={t("minimize", lang)}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="5" y1="18" x2="19" y2="18" />
-          </svg>
+          <MinimizeIcon width={18} height={18} />
         </button>
         <button
           onClick={handleMaximize}
@@ -197,26 +184,14 @@ function TitleBar({ onToggleSidebar, onSearch, sidebarOpen = true, activeFileNam
           title={isMaximized ? t("restore", lang) : t("maximize", lang)}
         >
           {/* 根据最大化状态切换图标：最大化时显示还原图标（双矩形），否则显示最大化图标（单矩形） */}
-          {isMaximized ? (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M4 8h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z" />
-              <path d="M8 4h12a2 2 0 0 1 2 2v10" />
-            </svg>
-          ) : (
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="4" y="4" width="16" height="16" rx="2" />
-            </svg>
-          )}
+          {isMaximized ? <RestoreIcon width={18} height={18} /> : <MaximizeIcon width={18} height={18} />}
         </button>
         <button
           onClick={handleClose}
           className="win-btn win-ctrl win-btn-close"
           title={t("close", lang)}
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="6" y1="6" x2="18" y2="18" />
-            <line x1="18" y1="6" x2="6" y2="18" />
-          </svg>
+          <CloseIcon width={20} height={20} />
         </button>
       </div>
     </div>

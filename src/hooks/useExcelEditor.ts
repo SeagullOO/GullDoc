@@ -103,7 +103,7 @@ export function useExcelEditor(currentFile: FolderFile | null, folderId: number 
   const [hotKey, setHotKey] = useState(0);
   /** 当前选中单元格引用（如 "A1"、"B12"），显示在编辑栏左侧 */
   const [cellRef, setCellRef] = useState("");
-  /** 编辑栏的当前值（与当前选中单元格内容同步） */
+/** 编辑栏的当前值（与当前选中单元格内容同步） */
   const [formulaValue, setFormulaValue] = useState("");
   /** 编辑栏是否获得焦点：聚焦时不覆盖用户正在编辑的值 */
   const isFormulaBarFocused = useRef(false);
@@ -115,10 +115,11 @@ export function useExcelEditor(currentFile: FolderFile | null, folderId: number 
     const H = (window as any).Handsontable;
     if (!H) return;
     const content = currentFile.content || defaultExcelContent;
+    const isEmptyData = !content.data || !content.data.length || !content.data[0]?.length;
 
     // Handsontable 配置对象
     const config: any = {
-      data: content.data || defaultExcelContent.data,
+      data: isEmptyData ? defaultExcelContent.data : content.data,
       colHeaders: true, rowHeaders: true, colWidths: 100,
       height: "100%", width: "100%",
       licenseKey: "non-commercial-and-evaluation",
@@ -212,7 +213,17 @@ export function useExcelEditor(currentFile: FolderFile | null, folderId: number 
       const colHeaders = hot.getColHeader();
       const colLetter = typeof colHeaders[c] === 'string' ? colHeaders[c] : String.fromCharCode(65 + c);
       setCellRef(`${colLetter}${r + 1}`);
-      // 仅当编辑栏未聚焦时更新编辑栏值（聚焦状态下用户可能正在输入）
+      // 状态栏：单元格范围
+      const el = document.getElementById("global-statusbar");
+      if (el) {
+        const isZh = (() => { try { return localStorage.getItem("gull_lang") !== "en"; } catch { return true; } })();
+        const Ln = isZh ? "行" : "Ln", Col = isZh ? "列" : "Col", Sel = isZh ? "已选择" : "Selected";
+        const range = r !== r2 || c !== c2
+          ? `<span style="color:var(--text-secondary)">${Sel}: ${colLetter}${r + 1}:${typeof colHeaders[c2] === 'string' ? colHeaders[c2] : String.fromCharCode(65 + c2)}${r2 + 1}</span>`
+          : "";
+        const ln = `${Ln} ${r + 1}, ${Col} ${c + 1}`;
+        el.innerHTML = `<span>Excel</span><span style="display:flex;gap:10px"><span>${ln}</span>${range}</span>`;
+      }
       if (!isFormulaBarFocused.current) {
         const val = hot.getDataAtCell(r, c);
         setFormulaValue(val != null ? String(val) : "");

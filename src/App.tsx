@@ -24,7 +24,7 @@
  * ```
  *
  * 缩放系统初始化流程：
- * - App 启动时从 localStorage (gdt_settings) 读取 zoom 和 contentZoom
+ * - App 启动时从 localStorage (gull_settings) 读取 zoom 和 contentZoom
  * - setZoom/setContentZoom 通过 props 传递给 FolderWorkspace
  * - Settings 页面通过 window.__applyZoom 回调修改 UI 缩放
  *
@@ -32,13 +32,14 @@
  */
 
 import { useState, useEffect, Component } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import FolderWorkspace from "./pages/FolderWorkspace";
 import TemplateManager from "./components/TemplateManager";
+import { ZOOM_MIN, ZOOM_MAX, ZOOM_DEFAULT, ZOOM_REFERENCE } from "./config";
 import Settings from "./pages/Settings";
 import TitleBar from "./components/TitleBar";
 import GlobalSearchModal from "./components/GlobalSearchModal";
-import { getLang, setLang } from "./i18n";
+import { t, getLang, setLang } from "./i18n";
 
 // ─── 错误边界 ───────────────────────────────────────────────────────────────
 // 捕获 React 渲染树中的未处理异常，防止整个应用白屏。
@@ -112,27 +113,29 @@ function applyThemeClass(theme: Theme): void {
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
-  /** UI 缩放（影响侧边栏和工具栏），默认 110% */
-  const [zoom, setZoom] = useState(110);
+  /** UI 缩放（影响侧边栏和工具栏），默认 ZOOM_DEFAULT */
+  const [zoom, setZoom] = useState(ZOOM_DEFAULT);
   /** 内容缩放（仅影响编辑区域），默认 100% */
   const [contentZoom, setContentZoom] = useState(100);
   /** 当前界面语言，切换时通过 key 强制重渲染整个应用 */
   const [lang, setLangState] = useState(getLang);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [statusState, setStatusState] = useState<{ fileType?: string; line: number; column: number; selectionCount: number; cellRange?: string }>({ line: 1, column: 1, selectionCount: 0 });
 
   // ─── 初始化主题和缩放 ────────────────────────────────────────────────
-  // 从 localStorage (gdt_settings) 读取持久化的设置，应用到状态和 DOM。
+  // 从 localStorage (gull_settings) 读取持久化的设置，应用到状态和 DOM。
   // 同时监听系统主题变化（仅在 theme === "system" 时响应）。
   useEffect(() => {
     let theme: Theme = "dark";
-    let z = 110;
+    let z = ZOOM_DEFAULT;
     let cz = 100;
     try {
-      const raw = localStorage.getItem("gdt_settings");
+      const raw = localStorage.getItem("gull_settings");
       if (raw) {
         const p = JSON.parse(raw);
         if (["dark", "light", "system"].includes(p.theme)) theme = p.theme;
-        if (typeof p.zoom === "number" && p.zoom >= 70 && p.zoom <= 150) z = p.zoom;
-        if (typeof p.contentZoom === "number" && p.contentZoom >= 70 && p.contentZoom <= 150) cz = p.contentZoom;
+        if (typeof p.zoom === "number" && p.zoom >= ZOOM_MIN && p.zoom <= ZOOM_MAX) z = p.zoom;
+        if (typeof p.contentZoom === "number" && p.contentZoom >= ZOOM_MIN && p.contentZoom <= ZOOM_MAX) cz = p.contentZoom;
       }
     } catch {}
     applyThemeClass(theme);
@@ -144,17 +147,17 @@ function App() {
     if (cz !== 100) {
       requestAnimationFrame(() => {
         const el = document.querySelector("[data-workspace-zoom]") as HTMLElement | null;
-        if (el) (el.style as any).zoom = String(cz / 100);
+        // 补偿父级 UI 缩放，确保编辑器有效缩放 = contentZoom / 100
+        const uiZoomCss = z !== ZOOM_REFERENCE ? z / ZOOM_REFERENCE : 1;
+        if (el) (el.style as any).zoom = String((cz / 100) / uiZoomCss);
       });
     }
-    // Electron 端：同步缩放因子到主进程（控制窗口实际缩放）
-    const api = (window as any).electronAPI;
-    if (api?.setZoomFactor) api.setZoomFactor(z / 100);
+    // 缩放由 CSS zoom 统一管理，不通过 Electron setZoomFactor，避免异步时序导致窗口大小不一致
     // 监听系统主题变化（仅 theme === "system" 时触发更新）
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const h = () => {
       try {
-        const raw = localStorage.getItem("gdt_settings");
+        const raw = localStorage.getItem("gull_settings");
         if (raw && JSON.parse(raw).theme === "system") applyThemeClass("system");
       } catch {}
     };
@@ -169,29 +172,47 @@ function App() {
     (window as any).__applyZoom = (z: number) => {
       setZoom(z);
       const el = document.querySelector("[data-ui-zoom]") as HTMLElement | null;
-      if (el) (el.style as any).zoom = z !== 110 ? String(z / 110) : "";
-      const api = (window as any).electronAPI;
-      if (api?.setZoomFactor) api.setZoomFactor(z / 100);
+      if (el) (el.style as any).zoom = z !== ZOOM_REFERENCE ? String(z / ZOOM_REFERENCE) : "";
     };
     (window as any).__applyLang = (l: string) => { setLang(l); setLangState(l as "zh" | "en"); };
     return () => { (window as any).__applyZoom = undefined; (window as any).__applyLang = undefined; };
   }, []);
 
+  // 状态栏更新回调：workspace 直接调用
+  useEffect(() => {
+    (window as any).__updateStatus = (st: any) => setStatusState({ ...st });
+    return () => { (window as any).__updateStatus = undefined; };
+  }, []);
+
+  const handleOpenSettings = () => setSettingsOpen(true);
+  const handleCloseSettings = () => setSettingsOpen(false);
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} key={lang}>
-      <AppContent sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} globalSearchOpen={globalSearchOpen} setGlobalSearchOpen={setGlobalSearchOpen} zoom={zoom} contentZoom={contentZoom} setZoom={setZoom} setContentZoom={setContentZoom} />
+      <AppContent
+        sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen}
+        globalSearchOpen={globalSearchOpen} setGlobalSearchOpen={setGlobalSearchOpen}
+        zoom={zoom} contentZoom={contentZoom} setZoom={setZoom} setContentZoom={setContentZoom}
+        settingsOpen={settingsOpen}
+        onOpenSettings={handleOpenSettings}
+        onCloseSettings={handleCloseSettings}
+      />
     </BrowserRouter>
   );
 }
 
 /**
- * AppContent — 路由感知的内容布局组件
+ * AppContent — 内容布局组件
  *
- * 从 App 中拆分出来是为了使用 useLocation() hook（必须在 BrowserRouter 内部）。
- * 负责组装布局：TitleBar + Routes + Settings 浮层。
+ * Settings 通过 state 控制（不改变 URL），以浮层形式覆盖在当前页面之上。
+ * 移除 useLocation 依赖 — 不再需要读取路由来判断 Settings 是否打开。
  */
-function AppContent({ sidebarOpen, setSidebarOpen, globalSearchOpen, setGlobalSearchOpen, zoom, contentZoom, setZoom, setContentZoom }: {
+function AppContent({
+  sidebarOpen, setSidebarOpen,
+  globalSearchOpen, setGlobalSearchOpen,
+  zoom, contentZoom, setZoom, setContentZoom,
+  settingsOpen, onOpenSettings, onCloseSettings,
+}: {
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   globalSearchOpen: boolean;
@@ -200,10 +221,10 @@ function AppContent({ sidebarOpen, setSidebarOpen, globalSearchOpen, setGlobalSe
   contentZoom: number;
   setZoom: React.Dispatch<React.SetStateAction<number>>;
   setContentZoom: React.Dispatch<React.SetStateAction<number>>;
+  settingsOpen: boolean;
+  onOpenSettings: () => void;
+  onCloseSettings: () => void;
 }) {
-  const location = useLocation();
-  const isSettings = location.pathname === "/settings";
-
   return (
     <ErrorBoundary>
       <div style={{ height: "100%", position: "relative" }}>
@@ -212,6 +233,7 @@ function AppContent({ sidebarOpen, setSidebarOpen, globalSearchOpen, setGlobalSe
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
             onSearch={() => setGlobalSearchOpen(true)}
+            onOpenSettings={onOpenSettings}
           />
           <GlobalSearchModal open={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} />
           <div className="flex-1 relative" style={{ overflow: "hidden" }}>
@@ -221,9 +243,14 @@ function AppContent({ sidebarOpen, setSidebarOpen, globalSearchOpen, setGlobalSe
               <Route path="/templates" element={<TemplateManager />} />
             </Routes>
           </div>
+          <div id="global-statusbar" style={{
+            height: 22, display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "var(--bg-panel)", borderTop: "1px solid var(--border-subtle)",
+            padding: "0 10px", flexShrink: 0, userSelect: "none",
+            fontSize: 11, color: "var(--text-tertiary)",
+          }} />
         </div>
-        {/* Settings 浮层独立于 Routes 渲染，可覆盖在任何页面之上 */}
-        {isSettings && <Settings />}
+        {settingsOpen && <Settings onClose={onCloseSettings} />}
       </div>
     </ErrorBoundary>
   );

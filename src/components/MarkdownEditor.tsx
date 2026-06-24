@@ -113,6 +113,21 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
       requestAnimationFrame(() => {
         syncEditorToPreview();
       });
+      // 状态栏：光标位置
+      const updateSb = () => {
+        const el = document.getElementById("global-statusbar");
+        if (!el) return;
+        const isZh = (() => { try { return localStorage.getItem("gull_lang") !== "en"; } catch { return true; } })();
+        const Ln = isZh ? "行" : "Ln", Col = isZh ? "列" : "Col", Sel = isZh ? "已选择" : "Selected";
+        const pos = editor.getPosition();
+        const sel = editor.getSelection();
+        const selLen = sel && !sel.isEmpty() ? editor.getModel()?.getValueInRange(sel).length || 0 : 0;
+        const ln = pos ? `${Ln} ${pos.lineNumber}, ${Col} ${pos.column}` : "";
+        const selStr = selLen > 0 ? `<span style="color:var(--text-secondary)">${Sel}: ${selLen}</span>` : "";
+        el.innerHTML = `<span>Markdown</span><span style="display:flex;gap:10px"><span>${ln}</span>${selStr}</span>`;
+      };
+      editor.onDidChangeCursorPosition(updateSb);
+      editor.onDidChangeCursorSelection(updateSb);
     },
     [editorRef, syncEditorToPreview],
   );

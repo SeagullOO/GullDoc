@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Folder } from "../types";
 import { t, getLang } from "../i18n";
+import Panel from "./Panel";
 
 /**
  * Sidebar — 首页侧边栏：文件夹列表与搜索筛选
@@ -10,11 +11,11 @@ import { t, getLang } from "../i18n";
  * 【角色】在首页视图 (/ 路由) 显示所有工作区文件夹的列表。
  *         支持搜索筛选、选择/双击进入、右键菜单（重命名/复制/删除）、行内重命名。
  *
- * 【视觉布局】固定宽度 w-60 (240px) 的 flex 垂直列（flex-shrink: 0，select-none）。
- *           - 标题区：px-4 pt-5 pb-3，显示"游戏策划工具"和"文件夹工作区"副标题
+ * 【视觉布局】基于 Panel 通用面板骨架（240px flex 列）。
+ *           - 标题区：px-4 pt-5 pb-3，显示"Gull"和"文件夹工作区"副标题
  *           - 搜索框：px-3 pb-2，带 SVG 搜索图标的 input-ide
- *           - 文件夹列表：flex-1 overflow-y-auto，每个条目为 side-item（hover 显文件数）
- *           - 底部操作：borderTop 分割线 + "管理模版 →" 链接
+ *           - 文件夹列表：Panel body 内，每个条目为 side-item（hover 显文件数）
+ *           - 底部操作：Panel footer 内 "管理模版 →" 链接
  *           列表内没有选中项时显示空状态（搜索匹配无结果 / 暂无文件夹）
  *
  * 【交互链】
@@ -132,14 +133,8 @@ function Sidebar({
     });
   };
 
-  return (
-    <div
-      className="w-60 h-full flex flex-col flex-shrink-0 select-none"
-      style={{
-        background: "var(--bg-panel)",
-        borderRight: "1px solid var(--border-subtle)",
-      }}
-    >
+  const header = (
+    <>
       {/* Title area */}
       <div className="px-4 pt-5 pb-3">
         <div>
@@ -181,9 +176,25 @@ function Sidebar({
           />
         </div>
       </div>
+    </>
+  );
 
+  const footer = (
+    <div className="px-3 py-2">
+      <button
+        onClick={() => navigate("/templates")}
+        className="fe-workspace-btn w-full text-[11px] font-medium text-left px-1 py-0.5 rounded"
+        style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
+      >
+        {t("manageTemplates", lang)}
+      </button>
+    </div>
+  );
+
+  return (
+    <Panel header={header} footer={footer}>
       {/* Folder list */}
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+      <div className="px-2 py-1 space-y-0.5">
         {filteredFolders.length === 0 ? (
           <div className="text-center py-12 px-4">
             {searchQuery ? (
@@ -274,17 +285,6 @@ function Sidebar({
         )}
       </div>
 
-      {/* Bottom actions */}
-      <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-        <button
-          onClick={() => navigate("/templates")}
-          className="side-link w-full py-1.5 text-[11px]"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          {t("manageTemplates", lang)}
-        </button>
-      </div>
-
       {/* 右键上下文菜单: 通过 Portal 渲染到 document.body，避免被 overflow 裁剪 */}
       {contextMenu && createPortal(
         <div
@@ -317,7 +317,7 @@ function Sidebar({
         </div>,
         document.body
       )}
-    </div>
+    </Panel>
   );
 }
 

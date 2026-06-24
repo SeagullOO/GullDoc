@@ -10,7 +10,7 @@
  * - 拖拽过程中比例实时更新，反映在 splitRatio state 中
  *
  * 持久化：
- * - splitRatio 通过 useEffect 自动写入 localStorage (key: gdt_md_split_ratio)
+ * - splitRatio 通过 useEffect 自动写入 localStorage (key: gull_md_split_ratio)
  * - 初始化时从 localStorage 读取，无保存值则默认 50%
  *
  * 限制：
@@ -26,7 +26,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type * as Monaco from "monaco-editor";
 
-const SPLIT_RATIO_KEY = "gdt_md_split_ratio";
+const SPLIT_RATIO_KEY = "gull_md_split_ratio";
 const DEFAULT_SPLIT = 0.5;
 /** 编辑区最小宽度比例（20%） */
 const MIN_SPLIT = 0.2;

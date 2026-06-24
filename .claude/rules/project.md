@@ -1,4 +1,4 @@
-# game-design-tool 专属规则
+# Gull 专属规则
 
 ## Handsontable 禁区
 - 不要在 .ht_master td、.handsontable td 上加 color !important 或 background !important

@@ -2,7 +2,7 @@
  * i18n.ts — 国际化系统
  *
  * 模块级别的轻量 i18n 方案：所有组件共享同一个翻译字典和语言状态。
- * 语言偏好存储在 localStorage("gdt_lang")，切换后通过 App 的 key prop 强制重渲染。
+ * 语言偏好存储在 localStorage("gull_lang")，切换后通过 App 的 key prop 强制重渲染。
  *
  * 用法：
  *   import { t, getLang, setLang } from "../i18n";
@@ -47,6 +47,13 @@ const DICT: Record<string, { zh: string; en: string }> = {
   settings: { zh: "设置", en: "Settings" },
   fileMenu: { zh: "文件", en: "File" },
   openWorkspace: { zh: "打开工作区", en: "Open Workspace" },
+  moveWorkspace: { zh: "更改工作区位置", en: "Move Workspace" },
+  workspaceMoved: { zh: "工作区已复制到新位置", en: "Workspace copied to new location" },
+  noWorkspaceToMove: { zh: "没有打开的工作区", en: "No workspace open" },
+  undoDeleteHint: { zh: "已删除，Ctrl+Z 撤销", en: "Deleted. Ctrl+Z to undo" },
+  statusLn: { zh: "行", en: "Ln" },
+  statusCol: { zh: "列", en: "Col" },
+  statusSelected: { zh: "已选择", en: "Selected" },
   minimize: { zh: "最小化", en: "Minimize" },
   maximize: { zh: "最大化", en: "Maximize" },
   restore: { zh: "还原", en: "Restore" },
@@ -61,7 +68,7 @@ const DICT: Record<string, { zh: string; en: string }> = {
   saveAsTemplate: { zh: "保存为模版", en: "Save as Template" },
 
   // ── Sidebar ──
-  appTitle: { zh: "游戏策划工具", en: "Game Design Tool" },
+  appTitle: { zh: "Gull", en: "Gull" },
   folderWorkspace: { zh: "文件夹工作区", en: "Folder Workspace" },
   searchFolders: { zh: "搜索文件夹...", en: "Search folders..." },
   noFolders: { zh: "暂无文件夹", en: "No folders" },
@@ -73,7 +80,7 @@ const DICT: Record<string, { zh: string; en: string }> = {
   hoursAgo: { zh: "小时前", en: " hr ago" },
   daysAgo: { zh: "天前", en: " days ago" },
   manageTemplates: { zh: "管理模版 →", en: "Manage Templates →" },
-  untitledFolder: { zh: "未命名文件夹", en: "Untitled Folder" },
+  untitledFolder: { zh: "未命名工作区", en: "Untitled Workspace" },
   folderCopySuffix: { zh: " (副本)", en: " (Copy)" },
 
   // ── FileExplorer / FileTree ──
@@ -227,8 +234,7 @@ const DICT: Record<string, { zh: string; en: string }> = {
   stgLanguageRegion: { zh: "语言与地区", en: "Language & Region" },
   stgUiLanguage: { zh: "界面语言", en: "UI Language" },
   stgUiLanguageDesc: { zh: "菜单、对话框和系统提示的显示语言", en: "Display language for menus, dialogs, and system prompts" },
-  stgUiZoom: { zh: "UI 缩放", en: "UI Zoom" },
-  stgUiZoomDesc: { zh: "调整界面缩放比例（70% – 150%）", en: "Adjust interface zoom level (70% – 150%)" },
+
   stgTheme: { zh: "主题", en: "Theme" },
   stgColorTheme: { zh: "颜色主题", en: "Color Theme" },
   stgColorThemeDesc: { zh: "选择暗色、亮色或跟随系统", en: "Choose dark, light, or follow system" },
@@ -236,7 +242,8 @@ const DICT: Record<string, { zh: string; en: string }> = {
   stgLight: { zh: "亮色", en: "Light" },
   stgSystem: { zh: "跟随系统", en: "System" },
   stgStorageLocation: { zh: "存储位置", en: "Storage Location" },
-  stgStoragePathLabel: { zh: "默认文件存储位置", en: "Default Storage Path" },
+  stgStoragePathLabel: { zh: "默认工作区存储位置", en: "Default Workspace Storage Path" },
+  openFolder: { zh: "打开文件夹", en: "Open Folder" },
   zh: { zh: "中文", en: "中文" },
   en: { zh: "English", en: "English" },
   stgVersion: { zh: "软件版本", en: "Version" },
@@ -253,7 +260,7 @@ const DICT: Record<string, { zh: string; en: string }> = {
 
 // ─── 模块级语言状态 ──────────────────────────────────────────────────────────
 
-const LANG_KEY = "gdt_lang";
+const LANG_KEY = "gull_lang";
 
 let _lang: Lang = "zh";
 

@@ -1,4 +1,4 @@
-# 游戏策划文档工具
+# Gull
 
 ## 技术栈
 - React 18 + Vite 5 + TypeScript

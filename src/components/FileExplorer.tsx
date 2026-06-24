@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { FolderFile } from "../types";
 import { t, getLang } from "../i18n";
+import Panel from "./Panel";
+import { EXPLORER_HEADER_HEIGHT, TREE_INDENT_BASE, TREE_INDENT_PER_DEPTH, TREE_ICON_GAP, TREE_CHEVRON_OFFSET, TREE_CHEVRON_WIDTH, TREE_GUIDE_OFFSET, TREE_GUIDE_HIGHLIGHT_WIDTH, TREE_GUIDE_HIGHLIGHT_COLOR } from "../config";
+import { ChevronIcon, MdFileIcon, ExcelFileIcon, NewFolderIcon, BackIcon, SearchIcon, SunIcon, MoonIcon } from "./icons";
 
 /**
  * FileExplorer — 文件资源管理器（工作区视图的左侧面板）
@@ -12,16 +15,16 @@ import { t, getLang } from "../i18n";
  *         右键上下文菜单（文件操作/文件夹操作/空白区域新建文件夹）、文件搜索筛选、
  *         工作区切换、亮色/暗色主题一键切换。
  *
- * 【视觉布局】固定宽度 240px 的 flex 垂直列（flex-shrink: 0，position: relative）。
+ * 【视觉布局】基于 Panel 通用面板骨架（240px flex 列）。
  *           布局从上到下分为四个区域：
- *           1. 顶部栏（36px 高）：文件夹名称 + 新建文件夹按钮 + 返回按钮
- *           2. 搜索区域（条件显示）：搜索图标 + input，data-search-area 标记用于 click-outside
- *           3. 文件树（flex-1，可滚，paddingBottom: 41px 为底部栏留空）：
- *              - 文件夹节点：三角形展开/折叠图标（CSS transform 旋转动画）+ 文件夹图标 + 名称
+ *           1. 顶部栏（36px 高，Panel header）：文件夹名称 + 新建文件夹按钮 + 返回按钮
+ *           2. 搜索区域（条件显示，Panel header 内）：搜索图标 + input
+ *           3. 文件树（Panel body，可滚）：
+ *              - 文件夹节点：三角形展开/折叠图标 + 文件夹图标 + 名称
  *              - 文件节点：MD/Excel 类型图标 + 文件名
  *              - 每个节点支持拖拽（draggable）、选择高亮，间距由 depth 层级决定
  *              - 空状态：暂无文件 / 搜索无匹配
- *           4. 底部栏（绝对定位 bottom: 0，z-index: 10）：
+ *           4. 底部栏（Panel footer）：
  *              - 左侧：工作区切换按钮（带 Portal 弹出的工作区列表）
  *              - 右侧：亮色/暗色主题切换按钮
  *
@@ -60,6 +63,7 @@ interface FileExplorerProps {
   onDeleteFolder: (path: string) => void;
   onMoveFile: (fileId: string, targetPath: string) => void;
   onMoveFolder: (oldPath: string, targetPath: string) => void;
+  onSelectFolderPath?: (path: string | null) => void;
   searchActive: boolean;
   onSearchClose: () => void;
   newFileId?: string | null;
@@ -127,6 +131,7 @@ function FileExplorer({
   onDeleteFolder,
   onMoveFile,
   onMoveFolder,
+  onSelectFolderPath,
   searchActive,
   onSearchClose,
   newFileId,
@@ -152,6 +157,8 @@ function FileExplorer({
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   // 选中的文件夹路径：用于在树中高亮当前文件夹
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null);
+  // 树中高亮的文件（独立于编辑器打开的文件）
+  const [highlightFileId, setHighlightFileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLight, setIsLight] = useState(() => {
     try {
@@ -184,6 +191,20 @@ function FileExplorer({
     return () => document.removeEventListener("mousedown", handleMouseDown);
   }, [renamingFolder, folderRenameValue, onRenameFolder]);
 
+  // 文件重命名 click-outside: 鼠标点击输入框外部时自动提交
+  useEffect(() => {
+    if (!renamingId) return;
+    const onDown = (e: MouseEvent) => {
+      if (renameInputRef.current && !renameInputRef.current.contains(e.target as Node)) {
+        handleRenameSubmit(renamingId);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [renamingId, renameValue]);
+
+  useEffect(() => { setHighlightFileId(currentFileId); }, [currentFileId]);
+
   useEffect(() => {
     if (renamingId && renameInputRef.current) {
       renameInputRef.current.focus();
@@ -196,7 +217,7 @@ function FileExplorer({
     const file = files.find((f) => f.id === newFileId);
     if (file) {
       setRenamingId(file.id);
-      setRenameValue(file.name);
+      setRenameValue(file.name.split("/").pop() || file.name);
     }
   }, [newFileId, files]);
 
@@ -216,6 +237,23 @@ function FileExplorer({
     return () => document.removeEventListener("click", handleClick);
   }, []);
 
+  // Delete key: 删除选中的文件或文件夹
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Delete") return;
+      const target = document.activeElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      if (selectedFolderPath) {
+        e.preventDefault();
+        onDeleteFolder(selectedFolderPath);
+        setSelectedFolderPath(null);
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedFolderPath, onDeleteFolder]);
+
   // Close search on click outside
   useEffect(() => {
     if (!searchActive) return;
@@ -231,16 +269,34 @@ function FileExplorer({
   }, [searchActive, onSearchClose]);
 
   // 文件列表变化时自动展开所有文件夹路径
+  // 注意：必须同时考虑 folderPaths 中可能存在的空文件夹节点，
+  // 否则拖出文件夹中最后一个文件后，空文件夹会因为 buildTree(files) 不包含它而自动收起。
   useEffect(() => {
+    const t = buildTree(files);
+    // 合并 folderPaths 中的空文件夹节点（与渲染时的 tree 构建逻辑一致）
+    for (const fp of folderPaths) {
+      const parts = fp.split("/");
+      let parent = t;
+      let currentPath = "";
+      for (let i = 0; i < parts.length; i++) {
+        currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+        let node = parent.find((n) => n.isFolder && n.name === parts[i]);
+        if (!node) {
+          node = { name: parts[i], path: currentPath, isFolder: true, children: [] };
+          parent.push(node);
+        }
+        parent = node.children;
+      }
+    }
     const allPaths = new Set<string>();
     const collectPaths = (nodes: TreeNode[]) => {
       for (const node of nodes) {
         if (node.isFolder) { allPaths.add(node.path); collectPaths(node.children); }
       }
     };
-    collectPaths(buildTree(files));
+    collectPaths(t);
     setExpandedPaths(allPaths);
-  }, [files]);
+  }, [files, folderPaths]);
 
   // Auto-trigger rename on newly created file
   useEffect(() => {
@@ -281,12 +337,16 @@ function FileExplorer({
   };
 
   const handleRenameStart = (file: FolderFile) => {
-    setRenamingId(file.id); setRenameValue(file.name); setContextMenu(null);
+    setRenamingId(file.id); setRenameValue(file.name.split("/").pop() || file.name); setContextMenu(null);
   };
 
   const handleRenameSubmit = (fileId: string) => {
     const trimmed = renameValue.trim();
-    if (trimmed) onRenameFile(fileId, trimmed);
+    if (trimmed) {
+      const file = files.find(f => f.id === fileId);
+      const dir = file ? file.name.split("/").slice(0, -1).join("/") : "";
+      onRenameFile(fileId, dir ? `${dir}/${trimmed}` : trimmed);
+    }
     setRenamingId(null);
     if (newFileId === fileId && onNewFileRenamed) onNewFileRenamed();
   }
@@ -339,13 +399,13 @@ function FileExplorer({
             className="tree-row group px-2 py-1 cursor-pointer transition-colors duration-100 flex items-center"
             style={{
               borderRadius: "var(--radius)", color: selectedFolderPath === node.path ? "var(--accent-text)" : "var(--text-secondary)",
-              paddingLeft: `${8 + depth * 14 + 40}px`, marginLeft: 4, marginRight: 4, position: "relative",
+              paddingLeft: `${TREE_INDENT_BASE + depth * TREE_INDENT_PER_DEPTH + TREE_ICON_GAP}px`, marginLeft: 4, marginRight: 4, position: "relative",
               background: selectedFolderPath === node.path ? "var(--bg-selected)" : "transparent",
             }}
             draggable={!isRenaming}
             onDragStart={() => { dragFolderPath.current = node.path; }}
             onDragEnd={() => { dragFolderPath.current = null; }}
-            onClick={() => { setSelectedFolderPath(node.path); }}
+            onClick={() => { setSelectedFolderPath(node.path); onSelectFolderPath?.(node.path); }}
             onContextMenu={(e) => handleContextMenu(e, undefined, node.path)}
             onDragOver={(e) => {
               e.preventDefault(); e.stopPropagation();
@@ -376,12 +436,33 @@ function FileExplorer({
             {selectedFolderPath === node.path && (
               <span style={{ position: "absolute", left: 0, top: 2, bottom: 2, width: 2, background: "var(--accent)", borderRadius: 1 }} />
             )}
-            <span style={{ position: "absolute", left: `${8 + depth * 14}px`, top: 0, bottom: 0, display: "flex", alignItems: "center", gap: 6 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            {/* 缩进引导线：文件夹展开时画自己层级+祖先层级 */}
+            {Array.from({ length: node.isFolder && isExpanded && hasChildren ? depth + 1 : depth }, (_, i) => {
+              const isSelf = node.isFolder && i === depth;
+              // 计算该层级的祖先路径，若等于选中文件夹则高亮
+              const parts = node.path.split("/");
+              const ancestorPath = parts.slice(0, i + 1).join("/");
+              const highlighted = !!selectedFolderPath && ancestorPath === selectedFolderPath;
+              return (
+                <span
+                  key={`guide-${i}`}
+                  style={{
+                    position: "absolute",
+                    left: `${TREE_INDENT_BASE + i * TREE_INDENT_PER_DEPTH + TREE_CHEVRON_OFFSET + TREE_GUIDE_OFFSET}px`,
+                    top: isSelf ? 14 : 0, bottom: 0,
+                    background: highlighted ? TREE_GUIDE_HIGHLIGHT_COLOR : "var(--border-subtle)",
+                    width: highlighted ? TREE_GUIDE_HIGHLIGHT_WIDTH : 1,
+                    opacity: highlighted ? 0.5 : undefined,
+                  }}
+                />
+              );
+            })}
+            <span style={{ position: "absolute", left: `${TREE_INDENT_BASE + depth * TREE_INDENT_PER_DEPTH + TREE_CHEVRON_OFFSET}px`, top: 0, bottom: 0, display: "flex", alignItems: "center", gap: 3 }}>
+              <span
                 onClick={(e) => { e.stopPropagation(); toggleFolder(node.path); }}
-                style={{ opacity: 0.5, flexShrink: 0, transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.12s ease", cursor: "pointer", padding: 3, pointerEvents: "auto" }}>
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
+                style={{ opacity: 0.5, flexShrink: 0, transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.12s ease", cursor: "pointer", padding: 3, pointerEvents: "auto", display: "inline-flex" }}>
+                <ChevronIcon width={6} height={6} />
+              </span>
               <span style={{ position: "relative", width: 14, height: 12, flexShrink: 0, opacity: 0.5, pointerEvents: "none" }}>
                 <span style={{ position: "absolute", bottom: 0, left: 0, width: 14, height: isExpanded ? 10 : 11, background: "currentColor", borderRadius: "0 2px 2px 2px" }} />
                 <span style={{ position: "absolute", top: 0, left: 0, width: 8, height: 4, background: "currentColor", borderRadius: "2px 2px 0 0" }} />
@@ -417,22 +498,40 @@ function FileExplorer({
         draggable={true}
         onDragStart={() => { dragFileId.current = file.id; }}
         onDragEnd={() => { dragFileId.current = null; }}
-        onClick={() => { setSelectedFolderPath(null); onSelectFile(file.id); }}
+        onClick={() => { setSelectedFolderPath(null); onSelectFolderPath?.(null); setHighlightFileId(file.id); onSelectFile(file.id); }}
         onContextMenu={(e) => handleContextMenu(e, file.id)}
-        className={`tree-row group px-2 py-1 mx-1 cursor-pointer transition-colors duration-100 flex items-center gap-1${currentFileId === file.id && !selectedFolderPath ? " active" : ""}`}
+        className={`tree-row group px-2 py-1 mx-1 cursor-pointer transition-colors duration-100 flex items-center gap-1${highlightFileId === file.id && !selectedFolderPath ? " active" : ""}`}
         style={{
-          borderRadius: "var(--radius)", paddingLeft: `${8 + depth * 14}px`,
-          color: currentFileId === file.id && !selectedFolderPath ? "var(--accent-text)" : "var(--text-secondary)",
-          background: currentFileId === file.id && !selectedFolderPath ? "var(--bg-selected)" : "transparent",
+          borderRadius: "var(--radius)", paddingLeft: `${TREE_INDENT_BASE + depth * TREE_INDENT_PER_DEPTH + TREE_CHEVRON_WIDTH}px`,
+          color: highlightFileId === file.id && !selectedFolderPath ? "var(--accent-text)" : "var(--text-secondary)",
+          background: highlightFileId === file.id && !selectedFolderPath ? "var(--bg-selected)" : "transparent",
           position: "relative",
         }}
       >
-        {currentFileId === file.id && !selectedFolderPath && (
+        {highlightFileId === file.id && !selectedFolderPath && (
           <span style={{
             position: "absolute", left: 0, top: 2, bottom: 2,
             width: 2, background: "var(--accent)", borderRadius: 1,
           }} />
         )}
+        {Array.from({ length: depth }, (_, i) => {
+          const parts = node.path.split("/");
+          const ancestorPath = parts.slice(0, i + 1).join("/");
+          const highlighted = !!selectedFolderPath && ancestorPath === selectedFolderPath;
+          return (
+            <span
+              key={`guide-${i}`}
+              style={{
+                position: "absolute",
+                left: `${TREE_INDENT_BASE + i * TREE_INDENT_PER_DEPTH + TREE_CHEVRON_OFFSET + TREE_GUIDE_OFFSET}px`,
+                top: 0, bottom: 0,
+                background: highlighted ? TREE_GUIDE_HIGHLIGHT_COLOR : "var(--border-subtle)",
+                width: highlighted ? TREE_GUIDE_HIGHLIGHT_WIDTH : 1,
+                opacity: highlighted ? 0.5 : undefined,
+              }}
+            />
+          );
+        })}
         <span style={{ width: 10, flexShrink: 0 }} />
         {renamingId === file.id ? (
           <input
@@ -446,30 +545,21 @@ function FileExplorer({
           />
         ) : (
           <>
-            {isMd ? (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.5, flexShrink: 0 }}>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.5, flexShrink: 0 }}>
-                <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" />
-              </svg>
-            )}
-            <span className="text-[12px] truncate flex-1">{node.name}</span>
+            {isMd
+              ? <MdFileIcon width={12} height={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+              : <ExcelFileIcon width={12} height={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+            }
+            <span className="text-[12px] truncate flex-1">{node.name.replace(/\.(md|xls)$/, "")}</span>
           </>
         )}
       </div>
     );
   };
 
-  return (
-    <div className="h-full flex flex-col flex-shrink-0 select-none relative"
-      style={{ width: 240, background: "var(--bg-panel)", borderRight: "1px solid var(--border-subtle)" }}>
-
+  const header = (
+    <>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-2 shrink-0"
+      <div className="flex items-center justify-between px-2"
         style={{ height: 36, borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="flex items-center gap-1">
           <span className="text-[12px] font-medium px-2 py-1" style={{ color: "var(--text-secondary)" }}>
@@ -481,20 +571,14 @@ function FileExplorer({
             style={{ width: 24, height: 24, color: "var(--text-tertiary)", background: "transparent", border: "none", cursor: "pointer" }}
             title={t("newFolder", lang)}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v11z" />
-              <line x1="12" y1="11" x2="12" y2="17" />
-              <line x1="9" y1="14" x2="15" y2="14" />
-            </svg>
+            <NewFolderIcon width={14} height={14} />
           </button>
         </div>
         <button onClick={() => navigate("/")}
           className="fe-btn text-[12px] px-2 py-1 rounded flex items-center gap-1"
           style={{ color: "var(--text-tertiary)", background: "transparent", border: "none", cursor: "pointer" }}
           title={t("backToHome", lang)}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" />
-          </svg>
+          <BackIcon width={12} height={12} />
           <span style={{ fontSize: 11 }}>{t("back", lang)}</span>
         </button>
       </div>
@@ -503,14 +587,7 @@ function FileExplorer({
       {searchActive && (
         <div className="px-2 py-1.5" style={{ borderBottom: "1px solid var(--border-subtle)" }} data-search-area>
           <div className="relative">
-            <svg
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
-              style={{ color: "var(--text-tertiary)" }}
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none" style={{ color: "var(--text-tertiary)" }} />
             <input
               ref={searchInputRef}
               type="text"
@@ -523,25 +600,103 @@ function FileExplorer({
           </div>
         </div>
       )}
+    </>
+  );
 
+  const footer = (
+    <div className="px-3 py-2" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ position: "relative", flex: 1 }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const raw = localStorage.getItem("gull_recent_workspaces");
+            const recent: { id: number; name: string }[] = raw ? JSON.parse(raw) : [];
+            setWorkspaceMenu(recent.slice(0, 7));
+          }}
+          className="fe-workspace-btn text-[11px] font-medium truncate max-w-full text-left px-1 py-0.5 rounded"
+          style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
+          title={t("switchWorkspace", lang)}
+        >
+          {folderName}
+        </button>
+        {/* 工作区切换菜单：Portal 弹出最近使用的 7 个工作区列表，底部带"打开其他工作区"入口 */}
+        {workspaceMenu && workspaceMenu.length > 0 && createPortal(
+          <div className="fixed" style={{ left: 44, bottom: 44, zIndex: 1000 }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="context-menu">
+              {workspaceMenu.map((w) => (
+                <button key={w.id}
+                  onClick={() => { navigate(`/folder/${w.id}`); setWorkspaceMenu(null); }}
+                  className="context-menu-item">{w.name}</button>
+              ))}
+              <div className="context-menu-divider" />
+              <button
+                onClick={() => {
+                  setWorkspaceMenu(null);
+                  const fn = (window as any).__openWorkspace;
+                  if (fn) fn(); else alert("此功能仅在桌面应用中可用");
+                }}
+                className="context-menu-item">{t("openOtherWorkspace", lang)}</button>
+            </div>
+          </div>,
+          document.body
+        )}
+      </div>
+      <button
+        onClick={() => {
+          // 切换亮色/暗色模式：同时更新 DOM 类名、组件状态、localStorage
+          const next = !document.documentElement.classList.contains("light");
+          document.documentElement.classList.toggle("light", next);
+          setIsLight(next);
+          // 持久化主题到 localStorage，确保 App/Settings 不会覆盖用户选择
+          try {
+            const raw = localStorage.getItem("gull_settings");
+            const s = raw ? JSON.parse(raw) : {};
+            s.theme = next ? "light" : "dark";
+            localStorage.setItem("gull_settings", JSON.stringify(s));
+          } catch {}
+        }}
+        className="fe-icon-btn flex items-center justify-center rounded flex-shrink-0"
+        style={{ width: 20, height: 20, color: "var(--text-tertiary)", background: "transparent", border: "none", cursor: "pointer" }}
+        title={isLight ? t("switchToDark", lang) : t("switchToLight", lang)}
+      >
+        {isLight ? <MoonIcon width={13} height={13} /> : <SunIcon width={13} height={13} />}
+      </button>
+    </div>
+  );
+
+  const handleRootDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (dragFileId.current) {
+      onMoveFile(dragFileId.current, ""); dragFileId.current = null;
+    } else if (dragFolderPath.current) {
+      onMoveFolder(dragFolderPath.current, "");
+      dragFolderPath.current = null;
+    }
+  };
+
+  return (
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleRootDrop}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest(".tree-row")) return;
+        setSelectedFolderPath(null);
+        onSelectFolderPath?.(null);
+        setHighlightFileId(null);
+      }}
+      style={{ height: "100%" }}
+    >
+    <Panel header={header} footer={footer}>
       {/* File tree */}
-      <div className="flex-1 py-1" style={{ paddingBottom: 41, overflowX: "visible", overflowY: "auto" }}
+      <div className="py-1"
         onContextMenu={(e) => {
           const target = e.target as HTMLElement;
           if (target.closest(".tree-row")) return;
           handleContextMenu(e);
         }}
-        onDragOver={(e) => { e.preventDefault(); }}
-        onDrop={(e) => {
-          e.preventDefault();
-          if (dragFileId.current) {
-            onMoveFile(dragFileId.current, ""); dragFileId.current = null;
-          } else if (dragFolderPath.current) {
-            onMoveFolder(dragFolderPath.current, "");
-            dragFolderPath.current = null;
-          }
-        }}>
-        {files.length === 0 ? (
+        >
+        {files.length === 0 && tree.length === 0 ? (
           <div className="text-center py-10 px-4">
             <div className="text-3xl mb-2 opacity-20">+</div>
             <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>{t("noFiles", lang)}</p>
@@ -554,76 +709,6 @@ function FileExplorer({
         ) : (
           tree.map((node) => renderNode(node, 0))
         )}
-      </div>
-
-      {/* Bottom bar — anchored at bottom of sidebar */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        padding: "0.5rem 0.75rem", display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderTop: "1px solid var(--border-subtle)", background: "var(--bg-panel)",
-        zIndex: 10,
-      }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const raw = localStorage.getItem("gdt_recent_workspaces");
-              const recent: { id: number; name: string }[] = raw ? JSON.parse(raw) : [];
-              setWorkspaceMenu(recent.slice(0, 7));
-            }}
-            className="fe-workspace-btn text-[11px] font-medium truncate max-w-full text-left px-1 py-0.5 rounded"
-            style={{ color: "var(--text-secondary)", background: "transparent", border: "none", cursor: "pointer" }}
-            title={t("switchWorkspace", lang)}
-          >
-            {folderName}
-          </button>
-          {/* 工作区切换菜单：Portal 弹出最近使用的 7 个工作区列表，底部带"打开其他工作区"入口 */}
-          {workspaceMenu && workspaceMenu.length > 0 && createPortal(
-            <div className="fixed" style={{ left: 44, bottom: 44, zIndex: 1000 }}
-              onClick={(e) => e.stopPropagation()}>
-              <div className="context-menu">
-                {workspaceMenu.map((w) => (
-                  <button key={w.id}
-                    onClick={() => { navigate(`/folder/${w.id}`); setWorkspaceMenu(null); }}
-                    className="context-menu-item">{w.name}</button>
-                ))}
-                <div className="context-menu-divider" />
-                <button
-                  onClick={() => {
-                    setWorkspaceMenu(null);
-                    const fn = (window as any).__openWorkspace;
-                    if (fn) fn(); else alert("此功能仅在桌面应用中可用");
-                  }}
-                  className="context-menu-item">{t("openOtherWorkspace", lang)}</button>
-              </div>
-            </div>,
-            document.body
-          )}
-        </div>
-        <button
-          onClick={() => {
-            // 切换亮色/暗色模式：同时更新 DOM 类名、组件状态、localStorage
-            const next = !document.documentElement.classList.contains("light");
-            document.documentElement.classList.toggle("light", next);
-            setIsLight(next);
-            // 持久化主题到 localStorage，确保 App/Settings 不会覆盖用户选择
-            try {
-              const raw = localStorage.getItem("gdt_settings");
-              const s = raw ? JSON.parse(raw) : {};
-              s.theme = next ? "light" : "dark";
-              localStorage.setItem("gdt_settings", JSON.stringify(s));
-            } catch {}
-          }}
-          className="fe-icon-btn flex items-center justify-center rounded flex-shrink-0"
-          style={{ width: 24, height: 24, color: "var(--text-tertiary)", background: "transparent", border: "none", cursor: "pointer" }}
-          title={isLight ? t("switchToDark", lang) : t("switchToLight", lang)}
-        >
-          {isLight ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          )}
-        </button>
       </div>
 
       {/* 右键上下文菜单：通过 Portal 渲染到 body，根据点击目标类型显示不同菜单项 */}
@@ -659,6 +744,7 @@ function FileExplorer({
         </div>,
         document.body
       )}
+    </Panel>
     </div>
   );
 }
