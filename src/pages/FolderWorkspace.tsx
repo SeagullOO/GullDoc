@@ -76,7 +76,7 @@ const defaultExcelContent = makeDefaultExcelContent();
 
 // ─── 主组件 ─────────────────────────────────────────────────────────────────
 
-function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, setZoom, setContentZoom }: { sidebarOpen?: boolean; zoom?: number; contentZoom?: number; setZoom?: React.Dispatch<React.SetStateAction<number>>; setContentZoom?: React.Dispatch<React.SetStateAction<number>> }) {
+function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, setZoom, setContentZoom, mdFontFamily }: { sidebarOpen?: boolean; zoom?: number; contentZoom?: number; setZoom?: React.Dispatch<React.SetStateAction<number>>; setContentZoom?: React.Dispatch<React.SetStateAction<number>>; mdFontFamily: string }) {
   const lang = getLang();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -880,6 +880,7 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
                     editorRef={editorRef}
                     isPreviewMode={isMdPreview}
                     onTogglePreview={() => setIsMdPreview((p) => !p)}
+                    fontFamily={mdFontFamily}
                   />
                 ) : (
                   <div className="hot-container" style={{ position: "relative", flex: 1, minHeight: 0 }}>
