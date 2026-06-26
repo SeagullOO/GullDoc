@@ -1,0 +1,998 @@
+/** @file components.css — 组件样式 */
+
+/* ----------------------------------------------------------
+   ActivityBar (act-btn)
+   ---------------------------------------------------------- */
+.act-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  padding: 0;
+  position: relative;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.act-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.act-btn.active {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+/* ----------------------------------------------------------
+   TitleBar (win-btn)
+   ---------------------------------------------------------- */
+.win-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.win-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.win-ctrl {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border-radius: 0;
+  align-self: stretch;
+}
+.win-btn-close:hover {
+  background: #e81123 !important;
+  color: #fff !important;
+}
+
+/* ----------------------------------------------------------
+   Sidebar (side-item, side-link)
+   ---------------------------------------------------------- */
+.side-item {
+  background: transparent;
+  border-radius: var(--radius);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.side-item:hover {
+  background: var(--bg-hover) !important;
+}
+.side-item.active,
+.side-item.active:hover {
+  background: var(--bg-selected) !important;
+}
+.side-link {
+  transition: color 0.1s ease;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  display: block;
+  text-align: left;
+}
+.side-link:hover {
+  color: var(--text-secondary) !important;
+}
+
+/* ----------------------------------------------------------
+   FileExplorer / FileTree (tree-row, fe-btn, fe-icon-btn)
+   ---------------------------------------------------------- */
+.tree-row {
+  border-radius: var(--radius);
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.tree-row:hover {
+  background-color: var(--bg-hover) !important;
+}
+.tree-row.active,
+.tree-row.active:hover {
+  background-color: var(--bg-selected) !important;
+}
+.fe-btn {
+  transition: background-color 0.1s ease, color 0.1s ease;
+  cursor: pointer;
+}
+.fe-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+.fe-icon-btn {
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.fe-icon-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-secondary) !important;
+}
+.fe-workspace-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ----------------------------------------------------------
+   ExcelToolbar (color-swatch, color-opt, dropdown items)
+   ---------------------------------------------------------- */
+.color-swatch {
+  border-radius: 2px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.1s, box-shadow 0.1s;
+  position: relative;
+}
+.color-swatch:hover {
+  transform: scale(1.22);
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.color-opt {
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.color-opt:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-primary) !important;
+}
+
+/* ----------------------------------------------------------
+   Shared Components
+   ---------------------------------------------------------- */
+
+/* Card */
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+}
+
+/* ---- Buttons ---- */
+.btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.875rem;
+  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-subtle);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.875rem;
+  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+.btn-secondary:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ---- .btn-green（绿色风格按钮，用于创建/确认类操作）---- */
+.btn-green {
+  background: var(--success-bg);
+  color: var(--success);
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.875rem;
+  transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+.btn-green:hover {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+/* ---- Toolbar buttons — 同步 config.ts TOOLBAR_BTN_* 常量 ---- */
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 26px;
+  height: 26px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+  flex-shrink: 0;
+}
+.tool-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.tool-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* ---- Toolbar divider — 同步 config.ts TOOLBAR_DIVIDER_* 常量 ---- */
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+/* ---------- Status badge ---------- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 10px;
+}
+.status-badge.done {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.status-badge.draft {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+/* ---- Obsidian-style search input ---- */
+.input-ide {
+  width: 100%;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.input-ide::placeholder {
+  color: var(--text-tertiary);
+}
+.input-ide:focus {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+/* ---- Unified dropdown / context menu ---- */
+.context-menu {
+  background: var(--bg-panel);
+  border: 0px solid var(--border-medium);
+  border-radius: var(--radius-m);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  padding: 4px;
+  min-width: 130px;
+  max-width: 240px;
+  z-index: 1000;
+  user-select: none;
+  overflow: hidden;
+  font-size: 13px;
+}
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.08s ease;
+  white-space: nowrap;
+}
+.context-menu-item:hover {
+  background: var(--bg-hover);
+}
+.context-menu-item.danger {
+  color: var(--danger);
+}
+.context-menu-item.danger:hover {
+  background: var(--danger-bg);
+}
+.context-menu-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0;
+}
+
+/* animate-in for context menu */
+.animate-in {
+  animation: fadeIn 0.1s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- Tab bar ---------- */
+.tab-bar {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 8px 0 0;
+  gap: 0;
+  min-height: 32px;
+  position: relative;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: grab;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: color 0.1s, background-color 0.1s, border-color 0.1s;
+  background: transparent;
+}
+.tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.tab.active {
+  color: var(--text-primary);
+  background: var(--bg-active);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+}
+.tab-dirty {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px; height: 16px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 2px;
+  transition: background 0.1s, color 0.1s;
+}
+.tab-close:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ---- Tab drag-and-drop ---- */
+.tab-dragging {
+  opacity: 0.35;
+}
+.tab-drop-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+  display: none;
+  z-index: 10;
+  border-radius: 1px;
+  transition: left 0.08s ease;
+}
+
+/* ---------- Formula bar ---------- */
+.formula-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  height: 28px;
+  flex-shrink: 0;
+}
+.formula-bar-cell-ref {
+  width: 50px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  user-select: none;
+}
+.formula-bar-fx {
+  width: 28px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text-tertiary);
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  user-select: none;
+}
+.formula-bar-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: var(--bg-root);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  padding: 0 8px;
+}
+
+/* ----------------------------------------------------------
+   Custom React Context Menu
+   ---------------------------------------------------------- */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 99999;
+  min-width: 150px;
+  max-width: 200px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-m);
+  padding: 4px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), 0 1px 6px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  user-select: none;
+  overflow: hidden;
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-primary);
+  transition: background-color 0.08s ease;
+  position: relative;
+}
+
+.ctx-item:hover {
+  background: var(--bg-hover);
+}
+
+.ctx-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctx-item-shortcut {
+  margin-left: 20px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.ctx-item-arrow {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+.ctx-separator {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-subtle);
+}
+
+/* Submenu (portal-rendered, positioned absolutely) */
+.ctx-submenu {
+  position: fixed;
+  z-index: 100000;
+  min-width: 180px;
+  max-width: 240px;
+  background: color-mix(in srgb, var(--bg-panel) 92%, transparent);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-m);
+  padding: 4px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  user-select: none;
+}
+
+/* Light mode overrides */
+:root.light .ctx-menu,
+:root.light .ctx-submenu {
+  background: #ffffff;
+  border-color: #d4d4d4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+:root.light .ctx-item {
+  color: #222222;
+}
+
+:root.light .ctx-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+:root.light .ctx-item-shortcut {
+  color: #7c7c7c;
+}
+
+:root.light .ctx-item-arrow {
+  color: #7c7c7c;
+}
+
+:root.light .ctx-separator {
+  background: #e8e8e8;
+}
+
+/* ============================================================
+   Settings Page — design-sketch color tokens
+   ============================================================ */
+
+:root {
+  --stg-bg:      #181818;
+  --stg-surface: #1F1F1F;
+  --stg-fg:      #D5D5D5;
+  --stg-muted:   #A5A5A5;
+  --stg-border:  #323232;
+  --stg-accent:  #a882ff;
+  --stg-accent-bg:   rgba(168, 130, 255, 0.25);
+  --stg-accent-hover: rgba(168, 130, 255, 0.30);
+}
+
+:root.light {
+  --stg-bg:      #ffffff;
+  --stg-surface: #f5f5f5;
+  --stg-fg:      #222222;
+  --stg-muted:   #7c7c7c;
+  --stg-border:  #e0e0e0;
+  --stg-accent:  #a882ff;
+  --stg-accent-bg:   rgba(168, 130, 255, 0.20);
+  --stg-accent-hover: rgba(168, 130, 255, 0.26);
+}
+
+/* ---- Sidebar ---- */
+.stg-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--stg-bg);
+  border-right: 1px solid var(--stg-border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  user-select: none;
+}
+.stg-sidebar-header {
+  padding: 20px 16px 16px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stg-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.stg-sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px;
+  gap: 2px;
+}
+.stg-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--stg-muted);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-size: 13.5px;
+  font-weight: 450;
+  line-height: 1.4;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stg-nav-btn:hover {
+  background: var(--stg-surface);
+  color: var(--stg-fg);
+}
+.stg-nav-btn.active {
+  background: var(--stg-surface);
+  color: var(--stg-fg);
+  font-weight: 510;
+}
+.stg-nav-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+.stg-nav-btn.active svg {
+  opacity: 0.9;
+  color: var(--stg-accent);
+}
+.stg-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--stg-border);
+  font-size: 11px;
+  color: var(--stg-muted);
+  letter-spacing: 0.02em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+
+/* ---- Main content ---- */
+.stg-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  background: var(--stg-bg);
+}
+.stg-main::-webkit-scrollbar { width: 6px; }
+.stg-main::-webkit-scrollbar-track { background: transparent; }
+.stg-main::-webkit-scrollbar-thumb { background: var(--stg-border); border-radius: 3px; }
+
+/* ---- Section header ---- */
+.stg-section-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--stg-fg);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.stg-section-desc {
+  font-size: 13px;
+  color: var(--stg-muted);
+  margin-top: 2px;
+}
+
+/* ---- Card ---- */
+.stg-card {
+  background: var(--stg-surface);
+  border: 1px solid var(--stg-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.stg-card-header {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--stg-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--stg-border);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+}
+
+/* ---- Setting row ---- */
+.stg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  min-height: 48px;
+}
+.stg-row + .stg-row {
+  border-top: 1px solid var(--stg-border);
+}
+.stg-row .stg-info {
+  flex: 1;
+  min-width: 0;
+}
+.stg-row .stg-label {
+  font-size: 13.5px;
+  font-weight: 450;
+  color: var(--stg-fg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+}
+.stg-row .stg-hint {
+  font-size: 12px;
+  color: var(--stg-muted);
+  margin-top: 2px;
+}
+.stg-row .stg-control {
+  flex-shrink: 0;
+  margin-left: 24px;
+}
+
+/* ---- Toggle switch ---- */
+.stg-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+.stg-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.stg-toggle .stg-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--stg-border);
+  border-radius: 11px;
+  transition: background 0.18s ease;
+}
+.stg-toggle input:checked + .stg-toggle-track {
+  background: var(--stg-accent);
+}
+.stg-toggle .stg-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--stg-fg);
+  border-radius: 50%;
+  transition: transform 0.18s ease;
+}
+.stg-toggle input:checked ~ .stg-toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* ---- Select ---- */
+.stg-select-wrap {
+  position: relative;
+  display: inline-block;
+}
+.stg-select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--stg-bg);
+  color: var(--stg-fg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  border: 1px solid var(--stg-border);
+  border-radius: 4px;
+  padding: 6px 30px 6px 10px;
+  cursor: pointer;
+  min-width: 140px;
+  outline: none;
+}
+.stg-select-wrap select:focus {
+  border-color: var(--stg-accent);
+}
+.stg-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--stg-muted);
+  pointer-events: none;
+}
+
+/* ---- Text input ---- */
+.stg-input {
+  background: var(--stg-bg);
+  color: var(--stg-fg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  border: 1px solid var(--stg-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  width: 180px;
+  outline: none;
+}
+.stg-input:focus {
+  border-color: var(--stg-accent);
+}
+.stg-input::placeholder {
+  color: var(--stg-muted);
+}
+
+/* ---- Button ---- */
+.stg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-size: 12.5px;
+  font-weight: 510;
+  border: 1px solid var(--stg-border);
+  border-radius: 4px;
+  background: var(--stg-surface);
+  color: var(--stg-fg);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  letter-spacing: 0.01em;
+}
+.stg-btn:hover {
+  background: var(--stg-bg);
+  border-color: var(--stg-muted);
+}
+.stg-btn.primary {
+  background: var(--stg-accent);
+  color: var(--stg-bg);
+  border-color: var(--stg-accent);
+  font-weight: 550;
+}
+.stg-btn.primary:hover {
+  opacity: 0.88;
+}
+
+/* ---- Button group ---- */
+.stg-btn-group {
+  display: flex;
+  gap: 2px;
+  background: var(--stg-bg);
+  border-radius: 4px;
+  padding: 2px;
+}
+.stg-btn-group-btn {
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  background: transparent;
+  color: var(--stg-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.stg-btn-group-btn:hover {
+  color: var(--stg-fg);
+}
+.stg-btn-group-btn.active {
+  background: var(--stg-accent-bg);
+  color: var(--stg-fg);
+}
+
+/* ---- Keyboard key ---- */
+.stg-kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--stg-muted);
+  background: var(--stg-bg);
+  border: 1px solid var(--stg-border);
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Version block ---- */
+.stg-version-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+}
+.stg-version-block .stg-app-name {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--stg-fg);
+}
+.stg-version-block .stg-meta {
+  font-size: 12px;
+  color: var(--stg-muted);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  line-height: 1.6;
+}
+
+/* ---- Zoom control ---- */
+.stg-zoom-value {
+  font-size: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  cursor: ew-resize;
+  user-select: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--stg-accent);
+  background: var(--stg-accent-bg);
+  transition: background 0.12s ease;
+}
+.stg-zoom-value:hover {
+  background: var(--stg-accent-hover);
+}
+.stg-zoom-input {
+  width: 64px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  text-align: right;
+  border: 1px solid var(--stg-accent);
+  border-radius: 4px;
+  background: var(--stg-bg);
+  color: var(--stg-fg);
+  outline: none;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 720px) {
+  .stg-sidebar {
+    width: 100%;
+    flex-shrink: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--stg-border);
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 12px;
+  }
+  .stg-sidebar-header { display: none; }
+  .stg-sidebar-nav {
+    flex-direction: row;
+    padding: 8px 0;
+    gap: 4px;
+  }
+  .stg-nav-btn { width: auto; white-space: nowrap; padding: 4px 10px; font-size: 12px; }
+  .stg-sidebar-footer { display: none; }
+  .stg-main { padding: 20px 16px; gap: 20px; }
+  .stg-input { width: 140px; }
+}

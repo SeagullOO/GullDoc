@@ -1,0 +1,154 @@
+/** @file handsontable.css — Handsontable 暗色主题覆盖 */
+
+/* !important 审查区 */
+/* 所有 !important 均为覆盖 Handsontable CDN CSS 所必需，非代码风格问题 */
+
+/* 主数据区 wtHolder 背景：bg-root 为单元格默认底色 */
+.hot-container .ht_master .wtHolder {
+  background: var(--bg-root);
+}
+
+/* All Handsontable clone layers — identical box model for alignment */
+.hot-container .ht_master td,
+.hot-container .ht_master th,
+.hot-container .ht_clone_top td,
+.hot-container .ht_clone_top th,
+.hot-container .ht_clone_left td,
+.hot-container .ht_clone_left th,
+.hot-container .ht_clone_top_left_corner td,
+.hot-container .ht_clone_top_left_corner th {
+  box-sizing: border-box !important;
+  border-right: 1px solid var(--border-subtle) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  padding: 2px 6px !important;
+  font-size: 12px !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  vertical-align: middle !important;
+  line-height: 1.4 !important;
+}
+
+/* Data cells: bg/color handled by renderer */
+.hot-container .ht_master td {
+  background: var(--bg-root);
+  color: var(--text-primary);
+}
+
+/* Row/column headers — match data cell sizing exactly */
+.hot-container .ht_clone_left th,
+.hot-container .ht_clone_top th,
+.hot-container .ht_clone_top_left_corner th,
+.hot-container .ht_master tbody th {
+  background: var(--bg-panel) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  user-select: none !important;
+  border-color: var(--border-subtle) !important;
+}
+
+/* Remove ALL white lines from Handsontable — table borders + corner */
+.hot-container .ht_master table.htCore,
+.hot-container .ht_clone_top table.htCore,
+.hot-container .ht_clone_left table.htCore,
+.hot-container .ht_clone_top_left_corner table.htCore {
+  border: none !important;
+  outline: none !important;
+  border-spacing: 0 !important;
+  border-collapse: separate !important;
+  background: var(--bg-panel) !important;
+}
+.hot-container .ht_master .wtHolder,
+.hot-container .ht_clone_top .wtHolder,
+.hot-container .ht_clone_left .wtHolder {
+  border: none !important;
+  outline: none !important;
+}
+/* Corner element itself */
+.hot-container .ht_clone_top_left_corner {
+  border: none !important;
+  outline: none !important;
+}
+.hot-container .ht_clone_top_left_corner .htCore,
+.hot-container .ht_clone_top_left_corner .htCore * {
+  border-color: var(--border-subtle) !important;
+  border-style: solid !important;
+}
+/* Nuke any remaining white borders */
+.hot-container .ht_clone_top .htCore,
+.hot-container .ht_clone_left .htCore {
+  border: none !important;
+}
+
+/* Ensure no white gaps between clone layers */
+.hot-container .ht_clone_top,
+.hot-container .ht_clone_left,
+.hot-container .ht_clone_top_left_corner,
+.hot-container .ht_master {
+  background: transparent !important;
+}
+.hot-container .ht_master .wtHolder {
+  background: var(--bg-root) !important;
+}
+
+/* Selected cell highlight — override Handsontable's ::before pseudo-element */
+.hot-container .ht_master td.area::before,
+.hot-container .ht_clone_top td.area::before,
+.hot-container .ht_clone_left td.area::before,
+.hot-container .ht_clone_top_left_corner td.area::before {
+  background: rgba(168, 130, 255, 1) !important;
+}
+/* Light mode */
+:root.light .hot-container .ht_master td.area::before,
+:root.light .hot-container .ht_clone_top td.area::before,
+:root.light .hot-container .ht_clone_left td.area::before,
+:root.light .hot-container .ht_clone_top_left_corner td.area::before {
+  background: rgb(154, 111, 255) !important;
+}
+
+/* Current cell — box-shadow on ::before renders above fill */
+.hot-container td.current.area::before {
+  box-shadow: inset 0 0 0 2px var(--accent) !important;
+}
+
+/* Selection boundary — per-edge box-shadow on ::before */
+.hot-container td.ht-boundary-t.area::before { box-shadow: inset 0 2px 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-b.area::before { box-shadow: inset 0 -2px 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-l.area::before { box-shadow: inset 2px 0 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-r.area::before { box-shadow: inset -2px 0 0 0 var(--accent) !important; }
+/* Corners */
+.hot-container td.ht-boundary-t.ht-boundary-l.area::before { box-shadow: inset 2px 2px 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-t.ht-boundary-r.area::before { box-shadow: inset -2px 2px 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-b.ht-boundary-l.area::before { box-shadow: inset 2px -2px 0 0 var(--accent) !important; }
+.hot-container td.ht-boundary-b.ht-boundary-r.area::before { box-shadow: inset -2px -2px 0 0 var(--accent) !important; }
+
+/* Hide wtBorder overlays */
+.hot-container .wtBorder.area,
+.hot-container .wtBorder.current,
+.hot-container .wtBorder.corner {
+  display: none !important;
+}
+
+/* Hide fill handle */
+.hot-container .wtBorder.corner {
+  display: none !important;
+}
+
+/* Hidden rows/columns indicator */
+.hot-container .htRowHeaders .ht_master tr td:first-child {
+  color: var(--text-secondary);
+}
+
+/* Fill handle — 填充柄颜色改为 accent 紫 */
+.hot-container .wtBorder {
+  background: var(--accent) !important;
+}
+
+/* Auto-fill direction indicator — 自动填充方向指示器改为 accent 紫 */
+.hot-container .wtBorderFill {
+  background: var(--accent) !important;
+}
+
+/* Remove Handsontable's built-in context menu - we use our React one now */
+.htContextMenu {
+  display: none !important;
+}

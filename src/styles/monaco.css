@@ -1,0 +1,31 @@
+/** @file monaco.css — Monaco Editor 主题集成 */
+
+/* Monaco gutter — match our panel background */
+.monaco-editor .margin {
+  background: var(--bg-root) !important;
+}
+
+/* Monaco scrollbar — accent color */
+.monaco-editor .slider {
+  background: var(--accent) !important;
+}
+.monaco-editor .slider:hover {
+  background: var(--accent-hover) !important;
+}
+
+/* Monaco minimap (disabled by default, but safe) */
+.monaco-editor .minimap {
+  opacity: 0.4;
+}
+
+/* Monaco find widget — match our surface */
+.monaco-editor .find-widget {
+  background: var(--bg-panel) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+/* Monaco suggest widget */
+.monaco-editor .suggest-widget {
+  background: var(--bg-panel) !important;
+  border-color: var(--border-medium) !important;
+}

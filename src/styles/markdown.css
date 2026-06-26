@@ -1,0 +1,109 @@
+/** @file markdown.css — Markdown 预览排版 */
+
+/* ----------------------------------------------------------
+   Markdown Preview Typography
+   ---------------------------------------------------------- */
+
+.markdown-preview h1 {
+  font-size: 1.75em;
+  font-weight: 700;
+  margin: 0.75em 0 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+.markdown-preview h2 {
+  font-size: 1.4em;
+  font-weight: 600;
+  margin: 0.75em 0 0.4em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+.markdown-preview h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+  color: var(--text-primary);
+}
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+  color: var(--text-primary);
+}
+.markdown-preview p {
+  margin: 0.5em 0;
+}
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: 1.5em;
+  margin: 0.4em 0;
+}
+.markdown-preview li {
+  margin: 0.15em 0;
+}
+.markdown-preview blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1em;
+  margin: 0.5em 0;
+  color: var(--text-secondary);
+}
+.markdown-preview code {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  background: var(--bg-panel);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.markdown-preview pre {
+  background: var(--bg-panel);
+  padding: 1em;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.markdown-preview pre code {
+  background: transparent;
+  padding: 0;
+}
+.markdown-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  text-align: left;
+}
+.markdown-preview th {
+  background: var(--bg-panel);
+  font-weight: 600;
+}
+.markdown-preview a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.markdown-preview a:hover {
+  text-decoration: underline;
+}
+.markdown-preview hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 1em 0;
+}
+.markdown-preview img {
+  max-width: 100%;
+}
+
+/* ── Markdown splitter ── */
+.md-splitter {
+  background: var(--border-medium);
+  transition: background 0.15s;
+}
+.md-splitter:hover {
+  background: var(--text-tertiary);
+}
