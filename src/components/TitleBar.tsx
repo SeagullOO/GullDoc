@@ -94,30 +94,29 @@ function TitleBar({ onToggleSidebar, onSearch, onOpenSettings, sidebarOpen = tru
         {/* 文件 dropdown menu: 通过 Portal 渲染到 document.body，避免被父容器裁剪 */}
         {fileMenuOpen && fileMenuBtnRef.current && createPortal(
           <div
-            className="context-menu animate-in"
+            className="ctx-menu animate-in"
             style={{
-              position: "fixed",
               top: fileMenuBtnRef.current.getBoundingClientRect().bottom + TITLE_BAR_MENU_OFFSET,
               left: fileMenuBtnRef.current.getBoundingClientRect().left,
               minWidth: TITLE_BAR_MENU_MIN_WIDTH,
             }}
           >
-            <button className="context-menu-item" onClick={() => {
+            <button className="ctx-item" onClick={() => {
               setFileMenuOpen(false);
               const fn = (window as any).__saveFile;
               if (fn) fn();
             }}>
               {t("save", lang)}
             </button>
-            <button className="context-menu-item" onClick={() => {
+            <button className="ctx-item" onClick={() => {
               setFileMenuOpen(false);
               const fn = (window as any).__saveAs;
               if (fn) fn();
             }}>
               {t("saveAs", lang)}
             </button>
-            <div className="context-menu-divider" />
-            <button className="context-menu-item" onClick={() => {
+            <div className="ctx-separator" />
+            <button className="ctx-item" onClick={() => {
               setFileMenuOpen(false);
               const fn = (window as any).__moveWorkspace;
               if (fn) fn();
