@@ -54,8 +54,9 @@ import StatusBadge from "../components/StatusBadge";
 import { useFileTabs } from "../hooks/useFileTabs";
 import { useTabDrag } from "../hooks/useTabDrag";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useWorkspaceZoom } from "../hooks/useWorkspaceZoom";
 import { exportFolder } from "../utils/exportUtils";
-import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, ZOOM_REFERENCE, CONTENT_ZOOM_MIN, CONTENT_ZOOM_MAX, CONTENT_ZOOM_STEP, CONTENT_ZOOM_DEFAULT, PANEL_WIDTH, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, SPLITTER_WIDTH, SPLITTER_HIT } from "../config";
+import { ZOOM_REFERENCE, PANEL_WIDTH, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, SPLITTER_WIDTH, SPLITTER_HIT } from "../config";
 import { dataToCsv, csvToData, storageReadWorkspaceFileBinary, storageWriteWorkspaceFileBinary } from "../storage";
 import { dataToXlsxBase64, xlsxBase64ToData, createEmptyXlsxBase64 } from "../utils/xlsxUtils";
 
@@ -115,19 +116,20 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
   const [ctxMenuPos, setCtxMenuPos] = useState({ x: 0, y: 0 });
   const [ctxMenuSelection, setCtxMenuSelection] = useState<[number, number, number, number][] | null>(null);
 
-  // ─── Folder menu ───────────────────────────────────────────────────────
-  const uiZoomRef = useRef<HTMLDivElement>(null);
-  const wsZoomRef = useRef<HTMLDivElement>(null);
-  // 保持 zoom/contentZoom 的最新值在 ref 中，避免 useEffect 闭包过期
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
-  const contentZoomRef = useRef(contentZoom);
-  contentZoomRef.current = contentZoom;
   const isElectron = typeof window !== "undefined" && "electronAPI" in window;
 
   // ─── File tabs ─────────────────────────────────────────────────────────
   const { openTabs, currentFileId, setCurrentFileId, setOpenTabs, handleSelectTab, handleCloseTab } = useFileTabs();
   const currentFile = folder?.files.find((f) => f.id === currentFileId) ?? null;
+
+  // ─── 缩放系统（Ctrl+滚轮，localStorage 持久化）────────────────────────
+  const { uiZoomRef, wsZoomRef } = useWorkspaceZoom({
+    zoom,
+    setZoom: setZoom!,
+    contentZoom,
+    setContentZoom: setContentZoom!,
+    currentFileId: currentFile?.id ?? null,
+  });
 
   // Electron: 当选中的文件内容为空时，从磁盘加载内容
   useEffect(() => {
@@ -228,65 +230,6 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
       }
     })();
   }, [currentFileId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── 缩放滚轮监听（原生事件，按容器独立处理，非全局级）──────────
-  // 设计原理：
-  // - UI 缩放：监听 ActivityBar + Sidebar 区域的 Ctrl+滚轮
-  // - 内容缩放：监听编辑区域的 Ctrl+滚轮
-  // - 缩放值保存到 localStorage (gull_settings)，跨会话持久化
-  // - 使用 capture: true 确保在子元素之前拦截事件
-  // - 依赖 currentFile?.id 确保切换文件时重新绑定（解决 TDZ 错误）
-  useEffect(() => {
-    const uiEl = uiZoomRef.current;
-    const wsEl = wsZoomRef.current;
-
-    const saveSetting = (key: string, val: number) => {
-      try {
-        const raw = localStorage.getItem("gull_settings");
-        const s = raw ? JSON.parse(raw) : {};
-        s[key] = val;
-        localStorage.setItem("gull_settings", JSON.stringify(s));
-      } catch {}
-    };
-
-    /** Ctrl+滚轮 → UI 缩放 */
-    const onUiWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
-      if ((e.target as HTMLElement).closest("[data-workspace-zoom]")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setZoom?.((prev) => {
-        const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, prev + (e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP)));
-        saveSetting("zoom", next);
-        (uiEl as any).style.zoom = next !== ZOOM_REFERENCE ? String(next / ZOOM_REFERENCE) : "";
-        return next;
-      });
-    };
-
-    /** Ctrl+滚轮 → 内容缩放 */
-    const onWsWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setContentZoom?.((prev) => {
-        const next = Math.min(CONTENT_ZOOM_MAX, Math.max(CONTENT_ZOOM_MIN, prev + (e.deltaY > 0 ? -CONTENT_ZOOM_STEP : CONTENT_ZOOM_STEP)));
-        saveSetting("contentZoom", next);
-        (window as any).__contentZoom = next;
-        // 补偿父级 UI 缩放：编辑器实际缩放 = (contentZoom / 100) / (uiZoom / 110)
-        const uiZoomCss = zoomRef.current !== ZOOM_REFERENCE ? zoomRef.current / ZOOM_REFERENCE : 1;
-        (wsEl as any).style.zoom = next !== CONTENT_ZOOM_DEFAULT ? String((next / CONTENT_ZOOM_DEFAULT) / uiZoomCss) : "";
-        return next;
-      });
-    };
-
-    uiEl?.addEventListener("wheel", onUiWheel, { passive: false, capture: true });
-    wsEl?.addEventListener("wheel", onWsWheel, { passive: false, capture: true });
-    return () => {
-      uiEl?.removeEventListener("wheel", onUiWheel, { capture: true });
-      wsEl?.removeEventListener("wheel", onWsWheel, { capture: true });
-    };
-    // currentFile?.id 作为依赖项：确保切换文件时重新绑定缩放监听器
-  }, [setZoom, setContentZoom, currentFile?.id]);
 
   // ─── 编辑器 hooks ────────────────────────────────────────────────────
   // useMarkdownEditor: 管理 raw markdown 源文本、自动保存、强制保存
