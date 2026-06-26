@@ -282,7 +282,7 @@ function Sidebar({
       {/* 右键上下文菜单: 通过 Portal 渲染到 document.body，避免被 overflow 裁剪 */}
       {contextMenu && createPortal(
         <div
-          className="fixed z-50 context-menu animate-in"
+          className="ctx-menu animate-in"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -291,20 +291,20 @@ function Sidebar({
               const folder = folders.find((f) => f.id === contextMenu.folderId);
               if (folder) handleRenameStart(folder);
             }}
-            className="context-menu-item"
+            className="ctx-item"
           >
             {t("rename", lang)}
           </button>
           <button
             onClick={() => { onCopy(contextMenu.folderId); setContextMenu(null); }}
-            className="context-menu-item"
+            className="ctx-item"
           >
             {t("copy", lang)}
           </button>
-          <div className="context-menu-divider" />
+          <div className="ctx-separator" />
           <button
             onClick={() => { onDelete(contextMenu.folderId); setContextMenu(null); }}
-            className="context-menu-item danger"
+            className="ctx-item ctx-danger"
           >
             {t("delete", lang)}
           </button>
