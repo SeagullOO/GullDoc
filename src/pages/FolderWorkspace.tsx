@@ -52,6 +52,7 @@ import { useMarkdownEditor } from "../hooks/useMarkdownEditor";
 import MarkdownEditor from "../components/MarkdownEditor";
 import StatusBadge from "../components/StatusBadge";
 import { useFileTabs } from "../hooks/useFileTabs";
+import { useTabDrag } from "../hooks/useTabDrag";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { exportFolder } from "../utils/exportUtils";
 import { ZOOM_MIN, ZOOM_MAX, ZOOM_STEP, ZOOM_REFERENCE, CONTENT_ZOOM_MIN, CONTENT_ZOOM_MAX, CONTENT_ZOOM_STEP, CONTENT_ZOOM_DEFAULT, PANEL_WIDTH, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, SPLITTER_WIDTH, SPLITTER_HIT } from "../config";
@@ -125,165 +126,8 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
   const isElectron = typeof window !== "undefined" && "electronAPI" in window;
 
   // ─── File tabs ─────────────────────────────────────────────────────────
-  const { openTabs, currentFileId, setCurrentFileId, handleSelectTab, handleCloseTab, moveTab } = useFileTabs();
+  const { openTabs, currentFileId, setCurrentFileId, setOpenTabs, handleSelectTab, handleCloseTab } = useFileTabs();
   const currentFile = folder?.files.find((f) => f.id === currentFileId) ?? null;
-
-  // ─── Tab 拖拽：window 级鼠标事件 ──────────────────────────────────
-  const dragRef = useRef({ idx: -1, x: 0, dragging: false, fileId: null as string | null });
-  const tabBarRef = useRef<HTMLDivElement>(null);
-  const dropIndicatorRef = useRef<HTMLDivElement>(null);
-  const moveTabRef = useRef(moveTab);
-  moveTabRef.current = moveTab;
-  const setCurrentFileIdRef = useRef(setCurrentFileId);
-  setCurrentFileIdRef.current = setCurrentFileId;
-  const openTabsRef = useRef(openTabs);
-  openTabsRef.current = openTabs;
-
-  // 获取仅包含实际 tab 元素的数组（排除指示器等非 tab 子元素）
-  const getTabs = () => {
-    const bar = tabBarRef.current;
-    if (!bar) return [];
-    return Array.from(bar.querySelectorAll(":scope > .tab")) as HTMLElement[];
-  };
-
-  /**
-   * 中点法计算拖拽插入位置。
-   *
-   * VS Code tabsTitleControl 的算法本质：
-   * 1. 对每个非拖拽标签取水平中点作为分界线
-   * 2. 鼠标在中点左侧 → 插入到该标签前面（gap = postIdx）
-   * 3. 鼠标在中点右侧 → 插入到该标签后面（gap = postIdx + 1）
-   * 4. 鼠标在间隙中 → 最近距离原则确定插入位置
-   *
-   * 这样向左和向右拖拽的感觉完全对称。
-   *
-   * @returns toIndex — post-removal 数组中的插入索引（0..openTabs.length-1）
-   */
-  const computeInsertIndex = (
-    mouseX: number,
-    fromIdx: number,
-    tabs: HTMLElement[]
-  ): number => {
-    if (tabs.length <= 1) return 0;
-
-    let bestGap = 0;
-    let bestDist = Infinity;
-    // postIdx 遍历的是 "排除被拖拽标签后的 post-removal 索引"
-    let postIdx = 0;
-
-    for (let i = 0; i < tabs.length; i++) {
-      if (i === fromIdx) continue;
-
-      const rect = tabs[i].getBoundingClientRect();
-      const mid = (rect.left + rect.right) / 2;
-
-      // 鼠标在标签中点左侧 → 插入该标签前面 (gap = postIdx)
-      // 鼠标在标签中点右侧 → 插入该标签后面 (gap = postIdx + 1)
-      const gap = mouseX < mid ? postIdx : postIdx + 1;
-
-      // 使用该标签对应的边缘来计算距离
-      const targetX = mouseX < mid ? rect.left : rect.right;
-      const dist = Math.abs(mouseX - targetX);
-
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestGap = gap;
-      }
-      postIdx++;
-    }
-
-    // clamp to valid post-removal range
-    const maxIdx = tabs.length - 1; // post-removal 数组最大索引
-    return Math.max(0, Math.min(bestGap, maxIdx));
-  };
-
-  // 全局 mousemove / mouseup：统一处理拖拽视觉反馈和释放
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const d = dragRef.current;
-      if (d.idx < 0 || !d.fileId) return;
-      if (!d.dragging && Math.abs(e.clientX - d.x) > 4) {
-        d.dragging = true;
-      }
-      if (!d.dragging) return;
-
-      const tabs = getTabs();
-      if (tabs.length === 0) return;
-      const indicator = dropIndicatorRef.current;
-
-      // 从 DOM 中定位被拖拽的 tab（通过已设置的 tab-dragging class）
-      let dragIdx = -1;
-      for (let i = 0; i < tabs.length; i++) {
-        if (tabs[i].classList.contains("tab-dragging")) { dragIdx = i; break; }
-      }
-      if (dragIdx < 0) {
-        // 首次进入：通过 fileId 在 openTabs 中找到真实索引，设置 dragging class
-        const idx = openTabsRef.current.indexOf(d.fileId);
-        if (idx >= 0 && idx < tabs.length) {
-          tabs[idx].classList.add("tab-dragging");
-        }
-      }
-
-      // 找到被拖拽标签的 DOM 索引（用于在后续逻辑中排除它）
-      const fromIdxMove = openTabsRef.current.indexOf(d.fileId);
-      if (fromIdxMove < 0) return;
-
-      const toIndex = computeInsertIndex(e.clientX, fromIdxMove, tabs);
-
-      // 将 post-removal toIndex 映射回原始 DOM 索引来定位指示线
-      // toIndex 是插入到 post-removal 数组中的位置
-      // 在原始 DOM 中，拖拽标签从位置 fromIdx 移除，所以：
-      //   toIndex < fromIdx  → DOM 位置不变 (at toIndex)
-      //   toIndex >= fromIdx → DOM 位置 +1 (因为移除的标签占了 fromIdx)
-      const indicatorOrigIdx = toIndex >= fromIdxMove ? toIndex + 1 : toIndex;
-
-      if (indicator) {
-        if (indicatorOrigIdx < tabs.length) {
-          indicator.style.left = tabs[indicatorOrigIdx].offsetLeft + "px";
-        } else {
-          const lastTab = tabs[tabs.length - 1];
-          indicator.style.left = (lastTab.offsetLeft + lastTab.offsetWidth) + "px";
-        }
-        indicator.style.display = "block";
-      }
-    };
-
-    const onUp = (e: MouseEvent) => {
-      const d = dragRef.current;
-
-      // 始终清理视觉状态 — 即使提前退出也要清除高亮残留
-      const tabs = getTabs();
-      for (let i = 0; i < tabs.length; i++) {
-        tabs[i].classList.remove("tab-dragging");
-      }
-      const indicator = dropIndicatorRef.current;
-      if (indicator) indicator.style.display = "none";
-
-      if (d.idx < 0 || !d.fileId) { d.idx = -1; d.dragging = false; d.fileId = null; return; }
-
-      if (d.dragging) {
-        if (tabs.length > 0) {
-          const fromIdx = openTabsRef.current.indexOf(d.fileId);
-          if (fromIdx < 0) { d.idx = -1; d.dragging = false; d.fileId = null; return; }
-
-          const toIndex = computeInsertIndex(e.clientX, fromIdx, tabs);
-
-          if (toIndex !== fromIdx) moveTabRef.current(fromIdx, toIndex);
-        }
-      } else {
-        if (d.fileId) setCurrentFileIdRef.current(d.fileId);
-      }
-
-      d.idx = -1; d.x = 0; d.dragging = false; d.fileId = null;
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Electron: 当选中的文件内容为空时，从磁盘加载内容
   useEffect(() => {
@@ -884,6 +728,11 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
 
   const openTabFiles = openTabs.map((tid) => folder?.files.find((f) => f.id === tid)).filter(Boolean) as FolderFile[];
 
+  const { onTabMouseDown, dropIndicatorRef, tabBarRef } = useTabDrag({
+    openTabs: openTabFiles,
+    setOpenTabs: (tabs: FolderFile[]) => setOpenTabs(tabs.map((f) => f.id)),
+  });
+
   const handleSaveAsTemplate = async () => {
     const name = prompt(t("templateName", lang), folderName);
     if (!name?.trim() || !folder) return;
@@ -1125,20 +974,14 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
                   {openTabFiles.map((file, idx) => (
                     <div key={file.id}
                       className={`tab ${currentFileId === file.id ? "active" : ""}`}
+                      onClick={() => handleTabClick(file.id)}
                       onMouseDown={(e) => {
-                        // 中键关闭
                         if (e.button === 1) {
                           e.preventDefault();
                           handleCloseTab(file.id, e as any);
                           return;
                         }
-                        // 右键不处理
-                        if (e.button !== 0) return;
-                        // 关闭按钮上不启动拖拽
-                        if ((e.target as HTMLElement).closest(".tab-close")) return;
-                        // 启动潜在拖拽（由 window mousemove/mouseup 处理拖拽和点击）
-                        e.preventDefault();
-                        dragRef.current = { idx, x: e.clientX, dragging: false, fileId: file.id };
+                        onTabMouseDown(e, file.id, idx);
                       }}>
                       <span style={{ fontSize: 11, opacity: 0.4 }}>{file.type === "md" ? "M" : file.type === "docx" ? "W" : "E"}</span>
                       <span>{file.name.split("/").pop() || ""}</span>

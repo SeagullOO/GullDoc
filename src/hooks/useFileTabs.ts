@@ -107,6 +107,7 @@ export function useFileTabs(initialTab?: string) {
     openTabs,
     currentFileId,
     setCurrentFileId,
+    setOpenTabs,
     handleSelectTab,
     handleCloseTab,
     moveTab,
