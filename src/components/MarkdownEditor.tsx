@@ -1,8 +1,9 @@
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useCallback, useEffect, useMemo, useState } from "react";
 import Editor, { type OnMount } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { createPortal } from "react-dom";
 import { applyMonacoTheme, getMonacoTheme } from "../monaco-theme";
 import { useScrollSync } from "../hooks/useScrollSync";
 import { useSplitterDrag } from "../hooks/useSplitterDrag";
@@ -64,6 +65,7 @@ interface MarkdownEditorProps {
 function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTogglePreview, fontFamily }: MarkdownEditorProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
   const themeObserverRef = useRef<MutationObserver | null>(null);
 
   const { splitRatio, handleSplitterMouseDown } = useSplitterDrag({
@@ -107,6 +109,23 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
       themeObserverRef.current?.disconnect();
     };
   }, []);
+
+  // Close context menu on click outside or Escape
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".ctx-menu")) setCtxMenu(null);
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCtxMenu(null);
+    };
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [ctxMenu]);
 
   // ── Editor mount ──────────────────────────────────────────────────────
 
@@ -199,6 +218,11 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
             width: isPreviewMode ? `${splitRatio * 100}%` : "100%",
             minWidth: isPreviewMode ? "120px" : undefined,
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            editorRef.current?.focus();
+            setCtxMenu({ x: e.clientX, y: e.clientY });
+          }}
         >
           <Editor
             height="100%"
@@ -210,6 +234,7 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
             beforeMount={handleBeforeMount}
             options={{
               fontSize: 13,
+              contextmenu: false,
               fontFamily: fontStack,
               lineHeight: 22,
               padding: { top: 8, bottom: 8 },
@@ -265,6 +290,59 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
           </>
         )}
       </div>
+
+      {/* 自定义右键菜单: 使用统一的 ctx-menu 样式 */}
+      {ctxMenu && createPortal(
+        <div
+          className="ctx-menu animate-in"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.getAction("editor.action.clipboardCutAction")?.run();
+            setCtxMenu(null);
+          }}>
+            剪切
+          </button>
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.getAction("editor.action.clipboardCopyAction")?.run();
+            setCtxMenu(null);
+          }}>
+            复制
+          </button>
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.focus();
+            navigator.clipboard?.readText().then((text: string) => {
+              if (text && editorRef.current) {
+                editorRef.current.trigger("keyboard", "type", { text });
+              }
+            }).catch(() => {});
+            setCtxMenu(null);
+          }}>
+            粘贴
+          </button>
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.getAction("editor.action.selectAll")?.run();
+            setCtxMenu(null);
+          }}>
+            全选
+          </button>
+          <div className="ctx-separator" />
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.getAction("editor.action.undo")?.run();
+            setCtxMenu(null);
+          }}>
+            撤销
+          </button>
+          <button className="ctx-item" onClick={() => {
+            editorRef.current?.getAction("editor.action.redo")?.run();
+            setCtxMenu(null);
+          }}>
+            重做
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
