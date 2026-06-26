@@ -156,6 +156,7 @@ const DICT: Record<string, { zh: string; en: string }> = {
   standardColors: { zh: "标准色", en: "Standard Colors" },
   recentColors: { zh: "最近使用", en: "Recent" },
   moreColors: { zh: "更多颜色", en: "More Colors" },
+  resetToDefault: { zh: "重置为默认色", en: "Reset to Default" },
 
   // ── Folder Workspace ──
   folderOptions: { zh: "文件夹选项", en: "Folder Options" },
@@ -242,6 +243,13 @@ const DICT: Record<string, { zh: string; en: string }> = {
   stgTheme: { zh: "主题", en: "Theme" },
   stgColorTheme: { zh: "颜色主题", en: "Color Theme" },
   stgColorThemeDesc: { zh: "选择暗色、亮色或跟随系统", en: "Choose dark, light, or follow system" },
+  stgEditorFont: { zh: "编辑器字体", en: "Editor Font" },
+  stgFontFamily: { zh: "字体", en: "Font Family" },
+  stgFontFamilyDesc: { zh: "选择 Markdown 编辑区的显示字体。", en: "Choose the display font for the Markdown editor." },
+  stgFontPreview: { zh: "AaBbCc 字体预览 The quick brown fox jumps over the lazy dog.", en: "AaBbCc Font Preview The quick brown fox jumps over the lazy dog." },
+  stgDefault: { zh: "默认", en: "Default" },
+  stgLoadingFonts: { zh: "正在加载字体列表...", en: "Loading font list..." },
+  stgNoFonts: { zh: "未找到其他字体", en: "No other fonts found" },
   stgDark: { zh: "暗色", en: "Dark" },
   stgLight: { zh: "亮色", en: "Light" },
   stgSystem: { zh: "跟随系统", en: "System" },
