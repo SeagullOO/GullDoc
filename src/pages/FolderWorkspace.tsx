@@ -28,18 +28,16 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { t, getLang } from "../i18n";
 
 import ActivityBar from "../components/ActivityBar";
 import FileExplorer from "../components/FileExplorer";
 import Sidebar from "../components/Sidebar";
-import TemplateModal from "../components/TemplateModal";
-import ExcelToolbar from "../components/ExcelToolbar";
-import EditorToolbar from "../components/EditorToolbar";
 import ContextMenu from "../components/ContextMenu";
-import FormulaBar from "../components/FormulaBar";
+import { WorkspaceHeader } from "../components/WorkspaceHeader";
+import { WorkspaceTabs } from "../components/WorkspaceTabs";
+import { HomeView } from "../components/HomeView";
 import {
   storageLoadFolders, storageGetFolder, storageUpdateFolder, storageSaveFolder, storageDeleteFolder, storageAddTemplate,
   storageListWorkspaceFiles, storageWriteWorkspaceFile, storageDeleteWorkspaceFile, storageRenameWorkspaceEntry,
@@ -50,7 +48,6 @@ import type { Folder, FolderFile, Template } from "../types";
 import { useExcelEditor } from "../hooks/useExcelEditor";
 import { useMarkdownEditor } from "../hooks/useMarkdownEditor";
 import MarkdownEditor from "../components/MarkdownEditor";
-import StatusBadge from "../components/StatusBadge";
 import { useFileTabs } from "../hooks/useFileTabs";
 import { useTabDrag } from "../hooks/useTabDrag";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
@@ -824,84 +821,37 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
       )}
       <div className="flex-1 flex flex-col overflow-hidden">
         {viewMode === "home" ? (
-          <>
-            <TemplateModal open={templateModalOpen} onClose={() => setTemplateModalOpen(false)} onSelect={handleCreateFromTemplate} />
-            <div className="flex-1 flex flex-col items-center justify-center" onClick={() => setSelectedFolderId(null)}>
-              <div className="text-5xl mb-4 opacity-20">+</div>
-              <p style={{ color: "var(--text-tertiary)", fontSize: 14 }}>{t("selectFolderToStart", lang)}</p>
-              <div className="flex gap-3 mt-6">
-                <button onClick={handleOpenWorkspace} className="btn-secondary py-1.5 px-4 text-[13px]">{t("openWorkspaceBtn", lang)}</button>
-                <button onClick={handleCreateNew} className="btn-secondary py-1.5 px-4 text-[13px]">{t("newWorkspaceBtn", lang)}</button>
-                <button onClick={() => setTemplateModalOpen(true)} className="btn-secondary py-1.5 px-4 text-[13px]">{t("fromTemplateBtn", lang)}</button>
-              </div>
-              <button
-                onClick={() => (window as any).__openTemplateManager?.()}
-                className="mt-4 text-[11px]"
-                style={{ color: "var(--text-tertiary)", background: "transparent", border: "none", cursor: "pointer" }}
-              >
-                {t("manageTemplates", lang)}
-              </button>
-            </div>
-          </>
+          <HomeView
+            templateModalOpen={templateModalOpen}
+            onCloseTemplateModal={() => setTemplateModalOpen(false)}
+            onSelectTemplate={handleCreateFromTemplate}
+            onDeselectAll={() => setSelectedFolderId(null)}
+            onOpenWorkspace={handleOpenWorkspace}
+            onNewWorkspace={handleCreateNew}
+            onOpenTemplateModal={() => setTemplateModalOpen(true)}
+            onManageTemplates={() => (window as any).__openTemplateManager?.()}
+          />
         ) : (
           <>
-            <header className="px-4 py-2 flex items-center gap-3 shrink-0"
-              style={{ background: "var(--bg-panel)", borderBottom: "1px solid var(--border-subtle)" }}>
-              <input
-                id="workspace-title-input"
-                value={currentFile ? (currentFile.name.split("/").pop() || "").replace(/\.(md|csv|xlsx)$/, "") : folderName}
-                onCompositionStart={() => { isComposing.current = true; }}
-                onCompositionEnd={(e) => {
-                  isComposing.current = false;
-                  const target = e.target as HTMLInputElement;
-                  if (currentFile) {
-                    const ext = currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-                    const dir = currentFile.name.split("/").slice(0, -1).join("/");
-                    const newName = dir ? `${dir}/${target.value}${ext}` : `${target.value}${ext}`;
-                    handleRenameFile(currentFile.id, newName);
-                  } else {
-                    setFolderName(target.value);
-                  }
-                }}
-                onChange={(e) => {
-                  if (isComposing.current) return;
-                  if (currentFile) {
-                    const ext = currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-                    const dir = currentFile.name.split("/").slice(0, -1).join("/");
-                    const newName = dir ? `${dir}/${e.target.value}${ext}` : `${e.target.value}${ext}`;
-                    handleRenameFile(currentFile.id, newName);
-                  } else {
-                    setFolderName(e.target.value);
-                  }
-                }}
-                className="max-w-md px-2 py-1 text-sm font-semibold border rounded outline-none bg-transparent transition-colors"
-                style={{ color: "var(--text-primary)", borderColor: "transparent" }}
-                placeholder={currentFile ? t("fileName", lang) : t("folderName", lang)}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                onBlur={(e) => {
-                  (e.currentTarget.style.borderColor = "transparent");
-                  // 清空后失焦 → 自动恢复默认文件名
-                  if (currentFile) {
-                    const trimmed = (e.target as HTMLInputElement).value.trim();
-                    if (!trimmed) {
-                      const isMd = currentFile.type === "md";
-                      const defaultBase = isMd
-                        ? t("untitledDocument", lang).replace(/\.md$/, "")
-                        : t("untitledSheet", lang);
-                      const ext = currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-                      const dir = currentFile.name.split("/").slice(0, -1).join("/");
-                      const fallbackName = dir
-                        ? `${dir}/${defaultBase}${ext}`
-                        : `${defaultBase}${ext}`;
-                      handleRenameFile(currentFile.id, fallbackName);
-                    }
-                  }
-                }}
-                onMouseEnter={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = "var(--border-subtle)"; }}
-                onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = "transparent"; }} />
-              <div className="flex-1" />
-              <StatusBadge status={saveStatus} />
-            </header>
+            <WorkspaceHeader
+              folderName={folderName}
+              currentFile={currentFile}
+              isComposing={isComposing}
+              onRenameFile={handleRenameFile}
+              onFolderNameChange={setFolderName}
+              saveStatus={saveStatus}
+              isMdPreview={isMdPreview}
+              onTogglePreview={() => setIsMdPreview((p) => !p)}
+              editorRef={editorRef}
+              hotInstance={hotInstance}
+              hotKey={hotKey}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              cellRef={cellRef}
+              formulaValue={formulaValue}
+              isFormulaBarFocused={isFormulaBarFocused}
+              onFormulaValueChange={setFormulaValue}
+            />
 
             {openTabFiles.length === 0 ? (
               <div className="flex-1 flex items-center justify-center">
@@ -912,78 +862,16 @@ function FolderWorkspace({ sidebarOpen = true, zoom = 110, contentZoom = 100, se
               </div>
             ) : (
               <>
-                <div className="tab-bar" id="tab-bar" ref={tabBarRef}>
-                  <div ref={dropIndicatorRef} className="tab-drop-indicator" />
-                  {openTabFiles.map((file, idx) => (
-                    <div key={file.id}
-                      className={`tab ${currentFileId === file.id ? "active" : ""}`}
-                      onClick={() => handleTabClick(file.id)}
-                      onMouseDown={(e) => {
-                        if (e.button === 1) {
-                          e.preventDefault();
-                          handleCloseTab(file.id, e as any);
-                          return;
-                        }
-                        onTabMouseDown(e, file.id, idx);
-                      }}>
-                      <span style={{ fontSize: 11, opacity: 0.4 }}>{file.type === "md" ? "M" : file.type === "docx" ? "W" : "E"}</span>
-                      <span>{file.name.split("/").pop() || ""}</span>
-                      {currentFileId === file.id && <span className="tab-dirty" />}
-                      <button className="tab-close" onClick={(e) => { e.stopPropagation(); const wrapped = handleCloseTab; return wrapped(file.id, e as any); }}>×</button>
-                    </div>
-                  ))}
-                </div>
+                <WorkspaceTabs
+                  openTabFiles={openTabFiles}
+                  currentFileId={currentFileId}
+                  onTabMouseDown={onTabMouseDown}
+                  onCloseTab={handleCloseTab}
+                  onSelectTab={handleTabClick}
+                  dropIndicatorRef={dropIndicatorRef}
+                  tabBarRef={tabBarRef}
+                />
 
-                {/* Breadcrumb: file path (VS Code-style) */}
-                {currentFile && (() => {
-                  const parts = currentFile.name.split("/");
-                  return (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        height: 22,
-                        padding: "0 12px",
-                        fontSize: 11,
-                        color: "var(--text-tertiary)",
-                        background: "var(--bg-root)",
-                        borderBottom: "1px solid var(--border-subtle)",
-                        flexShrink: 0,
-                        gap: 2,
-                        overflow: "hidden",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {parts.map((part, i) => (
-                        <span key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                          {i > 0 && (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.4, flexShrink: 0 }}>
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                          )}
-                          <span style={i === parts.length - 1 ? { color: "var(--accent-text)" } : undefined}>
-                            {part}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {currentFile?.type === "md" && (
-                  <EditorToolbar
-                    editorRef={editorRef}
-                    isPreviewMode={isMdPreview}
-                    onTogglePreview={() => setIsMdPreview((p) => !p)}
-                  />
-                )}
-                {currentFile?.type === "excel" && (
-                  <>
-                    <ExcelToolbar hot={hotInstance.current} key={hotKey} onUndo={handleUndo} onRedo={handleRedo} />
-                    <FormulaBar cellRef={cellRef} formulaValue={formulaValue} hotInstance={hotInstance}
-                      isFormulaBarFocused={isFormulaBarFocused} onFormulaValueChange={setFormulaValue} />
-                  </>
-                )}
                 <div ref={wsZoomRef} data-workspace-zoom style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
                 {currentFile?.type === "md" ? (
                   <MarkdownEditor
