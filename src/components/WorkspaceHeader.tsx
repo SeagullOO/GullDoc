@@ -9,7 +9,7 @@
  * 【依赖】StatusBadge、EditorToolbar、ExcelToolbar、FormulaBar 组件；i18n 翻译。
  */
 
-import { type FC } from "react";
+import { type FC, useState, useCallback } from "react";
 import type { FolderFile } from "../types";
 import type * as Monaco from "monaco-editor";
 import { t, getLang } from "../i18n";
@@ -38,6 +38,22 @@ export interface WorkspaceHeaderProps {
   onFormulaValueChange: (v: string) => void;
 }
 
+/** 提取文件扩展名（含点），如 ".md" ".xlsx" ".csv"，无扩展名返回 "" */
+function getExt(name: string): string {
+  const m = name.match(/\.(md|csv|xlsx|docx)$/);
+  return m ? m[0] : "";
+}
+
+/** 提取文件目录部分（去掉最后一个 / 之后的文件名） */
+function getDir(name: string): string {
+  return name.split("/").slice(0, -1).join("/");
+}
+
+/** 拼接新文件名：dir + base + ext，base 为用户输入的无后缀名 */
+function buildName(dir: string, base: string, ext: string): string {
+  return dir ? `${dir}/${base}${ext}` : `${base}${ext}`;
+}
+
 export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
   folderName,
   currentFile,
@@ -59,6 +75,30 @@ export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
 }) => {
   const lang = getLang();
 
+  const [focused, setFocused] = useState(false);
+
+  const ext = currentFile ? getExt(currentFile.name) : "";
+  const dir = currentFile ? getDir(currentFile.name) : "";
+  const fullName = currentFile ? (currentFile.name.split("/").pop() || "") : "";
+
+  /** 显示值：聚焦时只显示文件名（隐藏后缀），失焦后显示完整文件名 */
+  const displayValue = currentFile
+    ? focused
+      ? fullName.replace(ext, "")
+      : fullName
+    : folderName;
+
+  /** 提交重命名：将用户输入的纯名称 + 原后缀拼接 */
+  const commitRename = useCallback(
+    (userInput: string) => {
+      if (!currentFile) return;
+      const ext = getExt(currentFile.name);
+      const dir = getDir(currentFile.name);
+      onRenameFile(currentFile.id, buildName(dir, userInput, ext));
+    },
+    [currentFile, onRenameFile],
+  );
+
   return (
     <>
       <header
@@ -70,11 +110,7 @@ export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
       >
         <input
           id="workspace-title-input"
-          value={
-            currentFile
-              ? (currentFile.name.split("/").pop() || "")
-              : folderName
-          }
+          value={displayValue}
           onCompositionStart={() => {
             isComposing.current = true;
           }}
@@ -82,13 +118,7 @@ export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
             isComposing.current = false;
             const target = e.target as HTMLInputElement;
             if (currentFile) {
-              const ext =
-                currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-              const dir = currentFile.name.split("/").slice(0, -1).join("/");
-              const newName = dir
-                ? `${dir}/${target.value}${ext}`
-                : `${target.value}${ext}`;
-              onRenameFile(currentFile.id, newName);
+              commitRename(target.value);
             } else {
               onFolderNameChange(target.value);
             }
@@ -96,13 +126,7 @@ export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
           onChange={(e) => {
             if (isComposing.current) return;
             if (currentFile) {
-              const ext =
-                currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-              const dir = currentFile.name.split("/").slice(0, -1).join("/");
-              const newName = dir
-                ? `${dir}/${e.target.value}${ext}`
-                : `${e.target.value}${ext}`;
-              onRenameFile(currentFile.id, newName);
+              commitRename(e.target.value);
             } else {
               onFolderNameChange(e.target.value);
             }
@@ -112,28 +136,34 @@ export const WorkspaceHeader: FC<WorkspaceHeaderProps> = ({
           placeholder={
             currentFile ? t("fileName", lang) : t("folderName", lang)
           }
-          onFocus={(e) =>
-            (e.currentTarget.style.borderColor = "var(--accent)")
-          }
+          onFocus={(e) => {
+            setFocused(true);
+            e.currentTarget.style.borderColor = "var(--accent)";
+            // 选中文件名部分（不含后缀），方便直接输入
+            const input = e.currentTarget;
+            if (currentFile && ext) {
+              const dotIdx = input.value.lastIndexOf(ext);
+              if (dotIdx > 0) input.setSelectionRange(0, dotIdx);
+            }
+          }}
           onBlur={(e) => {
+            setFocused(false);
             e.currentTarget.style.borderColor = "transparent";
             // 清空后失焦 → 自动恢复默认文件名
             if (currentFile) {
               const trimmed = (e.target as HTMLInputElement).value.trim();
               if (!trimmed) {
-                const isMd = currentFile.type === "md";
-                const defaultBase = isMd
-                  ? t("untitledDocument", lang).replace(/\.md$/, "")
-                  : t("untitledSheet", lang);
-                const ext =
-                  currentFile.name.match(/\.(md|csv|xlsx)$/)?.[0] || "";
-                const dir = currentFile.name
-                  .split("/")
-                  .slice(0, -1)
-                  .join("/");
+                const defaultBase =
+                  currentFile.type === "md"
+                    ? t("untitledDocument", lang).replace(/\.md$/, "")
+                    : t("untitledSheet", lang);
+                const ext = getExt(currentFile.name);
+                const dir = getDir(currentFile.name);
+                const extFinal =
+                  ext || (currentFile.type === "md" ? ".md" : ".xlsx");
                 const fallbackName = dir
-                  ? `${dir}/${defaultBase}${ext}`
-                  : `${defaultBase}${ext}`;
+                  ? `${dir}/${defaultBase}${extFinal}`
+                  : `${defaultBase}${extFinal}`;
                 onRenameFile(currentFile.id, fallbackName);
               }
             }
