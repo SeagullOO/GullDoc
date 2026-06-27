@@ -243,5 +243,5 @@ export const TOOLBAR_DIVIDER_MARGIN = "0 2px";
 export const RECENT_WORKSPACES_COUNT = 7;
 
 /** Markdown 编辑器默认字体 */
-export const MD_FONT_DEFAULT = "Maple Mono Normal NF CN";
+export const MD_FONT_DEFAULT = "Maple Mono NF CN";
 

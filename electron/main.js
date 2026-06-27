@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, protocol, Menu, screen, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, protocol, Menu, screen, shell, clipboard } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { execSync } = require("child_process");
@@ -399,6 +399,10 @@ ipcMain.handle("update:download", async () => {
 ipcMain.handle("update:install", () => {
   if (autoUpdater) autoUpdater.quitAndInstall();
 });
+
+// Clipboard IPC (backup for preload)
+ipcMain.handle("clipboard:read", () => clipboard.readText());
+ipcMain.handle("clipboard:write", (_e, text) => clipboard.writeText(text));
 
 // Window control IPC
 ipcMain.on("window-close", () => { if (mainWindow) mainWindow.close(); });

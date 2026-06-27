@@ -122,9 +122,28 @@ function dispatchAction(key: string, hot: any, selection: [number, number, numbe
     }
     case "paste": {
       const cp = hot.getPlugin("copyPaste");
-      console.log("[GULL-PASTE-EXCEL] copyPaste plugin:", !!cp, typeof cp?.paste);
       if (cp && typeof cp.paste === "function") {
         cp.paste();
+      } else {
+        // Fallback: clipboard module or API not available — use async clipboard read
+        (async () => {
+          let text = "";
+          try {
+            text = await navigator.clipboard.readText();
+          } catch {
+            text = (window as any).electronAPI?.clipboardRead?.() || "";
+          }
+          if (text && selection && selection[0]) {
+            const [r1, c1] = selection[0];
+            const rows = text.split("\n");
+            for (let ri = 0; ri < rows.length; ri++) {
+              const cols = rows[ri].split("\t");
+              for (let ci = 0; ci < cols.length; ci++) {
+                hot.setDataAtCell(r1 + ri, c1 + ci, cols[ci]);
+              }
+            }
+          }
+        })();
       }
       break;
     }

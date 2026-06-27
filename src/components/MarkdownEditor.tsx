@@ -322,20 +322,22 @@ function MarkdownEditor({ source, onSourceChange, editorRef, isPreviewMode, onTo
           <button className="ctx-item" onClick={async (e) => {
             e.stopPropagation();
             const ed = editorRef.current;
-            if (!ed) return;
-            ed.focus();
-            try {
-              const clipboardText = (window as any).electronAPI?.clipboardRead?.();
-              if (clipboardText) {
-                const selection = ed.getSelection();
-                if (selection) {
-                  ed.executeEdits("clipboard-paste", [
-                    { range: selection, text: clipboardText, forceMoveMarkers: true },
-                  ]);
-                }
+            if (!ed) { setCtxMenu(null); return; }
+            let text = "";
+            // Read clipboard FIRST while user gesture is active (before focus changes)
+            try { text = await navigator.clipboard.readText(); } catch {}
+            if (!text) {
+              const api = (window as any).electronAPI;
+              text = typeof api?.clipboardRead === "function" ? api.clipboardRead() : "";
+            }
+            if (text) {
+              ed.focus();
+              const sel = ed.getSelection();
+              if (sel) {
+                ed.executeEdits("clipboard-paste", [
+                  { range: sel, text, forceMoveMarkers: true },
+                ]);
               }
-            } catch (err) {
-              console.error("[GULL-MD-PASTE] Failed:", err);
             }
             setCtxMenu(null);
           }}>

@@ -41,8 +41,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSystemFonts: () => ipcRenderer.invoke("font:getSystemFonts"),
 
   // Clipboard — 使用 Electron 原生 clipboard 模块，绕过浏览器权限限制
-  clipboardRead: () => clipboard.readText(),
-  clipboardWrite: (text) => clipboard.writeText(text),
+  clipboardRead: () => { const t = clipboard.readText(); console.log("[PRELOAD-CLIP] readText:", t?.length); return t; },
+  clipboardWrite: (text) => { console.log("[PRELOAD-CLIP] writeText:", text?.length); clipboard.writeText(text); },
 
   // Window controls
   windowClose: () => ipcRenderer.send("window-close"),
