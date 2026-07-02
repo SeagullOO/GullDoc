@@ -632,23 +632,27 @@ app.whenReady().then(() => {
     const reqPath = decodeURIComponent(url.pathname);
     const baseDir = isDev ? path.join(__dirname, "..") : distDir;
 
-    // Serve custom fonts from data/fonts/ directory
+    // Serve custom fonts first, then bundled fonts copied by Vite from public/fonts.
     if (reqPath.startsWith("/fonts/")) {
       const fontName = reqPath.replace("/fonts/", "");
-      const fontPath = path.join(getFontsDir(), fontName);
+      const fontPaths = [
+        path.join(getFontsDir(), fontName),
+        path.join(baseDir, "fonts", fontName),
+      ];
       const fontMime = {
         ".ttf": "font/ttf", ".otf": "font/otf",
         ".woff": "font/woff", ".woff2": "font/woff2",
       };
       const ft = fontMime[path.extname(fontName).toLowerCase()] || "application/octet-stream";
-      try {
-        return new Response(fs.readFileSync(fontPath), {
-          status: 200,
-          headers: { "content-type": ft, "access-control-allow-origin": "*" },
-        });
-      } catch {
-        return new Response("Font not found", { status: 404 });
+      for (const fontPath of fontPaths) {
+        try {
+          return new Response(fs.readFileSync(fontPath), {
+            status: 200,
+            headers: { "content-type": ft, "access-control-allow-origin": "*" },
+          });
+        } catch {}
       }
+      return new Response("Font not found", { status: 404 });
     }
 
     const filePath = path.join(baseDir, reqPath);
@@ -657,6 +661,7 @@ app.whenReady().then(() => {
       ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript",
       ".css": "text/css", ".json": "application/json",
       ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon",
+      ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2",
     };
     const ct = mime[path.extname(filePath).toLowerCase()] || "application/octet-stream";
 
