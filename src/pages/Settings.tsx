@@ -258,7 +258,7 @@ const Settings = memo(function Settings({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </nav>
-      <div className="stg-sidebar-footer">v1.0.4</div>
+      <div className="stg-sidebar-footer">v1.0.5</div>
     </aside>
   );
 
@@ -509,7 +509,7 @@ const Settings = memo(function Settings({ onClose }: { onClose: () => void }) {
                     <div>
                       <div className="stg-app-name">GullDoc</div>
                       <div className="stg-meta">
-                        版本 1.0.4 (build 2406.28)<br />
+                        版本 1.0.5 (build 2607.03)<br />
                         React 18 · Vite 5 · Electron 42<br />
                         © 2026
                       </div>
